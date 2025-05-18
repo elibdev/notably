@@ -4,15 +4,29 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/elibdev/notably/dynamo"
 )
 
 func main() {
 	ctx := context.Background()
-	cfg, err := config.LoadDefaultConfig(ctx)
+	var cfgOpts []func(*config.LoadOptions) error
+	if ep := os.Getenv("DYNAMODB_ENDPOINT_URL"); ep != "" {
+		fmt.Printf("Using local DynamoDB endpoint: %s\n", ep)
+		resolver := aws.EndpointResolverFunc(func(service, region string) (aws.Endpoint, error) {
+			if service == dynamodb.ServiceID {
+				return aws.Endpoint{URL: ep, SigningRegion: region}, nil
+			}
+			return aws.Endpoint{}, &aws.EndpointNotFoundError{}
+		})
+		cfgOpts = append(cfgOpts, config.WithEndpointResolver(resolver))
+	}
+	cfg, err := config.LoadDefaultConfig(ctx, cfgOpts...)
 	if err != nil {
 		log.Fatalf("unable to load AWS SDK config: %v", err)
 	}

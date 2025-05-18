@@ -3,6 +3,8 @@
 
 # 2025-05-18
 
+# Scaffold time based database idea
+
 I’ve scaffolded a minimal Go‐based “notably” DynamoDB fact store (module path github.com/elibdev/notably) exactly as laid out in the README:
 
     1: I want to build a database on Dynamo DB that will be a flexible time versioned database …
@@ -54,4 +56,52 @@ A small CLI that demonstrates:
     ./example
 
 Everything is formatted with gofmt and managed via Go modules. Let me know if you’d like any tweaks or additional access patterns!
+
+# Add api package
+
+I’ve added a first‐class Go “api” package on top of the low-level Dynamo client and updated the README with AWS vs. local-emulator setup instructions, plus a Go code snippet showing the new API in action.
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+### 1. New api package
+
+File: api/api.go
+
+    * **FactStore**: wraps your `dynamo.Client` and loads AWS config (credentials/region) from the environment.  If `DYNAMODB_ENDPOINT_URL` is set, it will automatically point at a local DynamoDB emulator.
+    * **CreateSchema**, **AddFact**, **UpdateFact**, **DeleteFact**: unified methods for table-creation, inserts/updates, and “soft” deletes (tombstones).
+    * **QueryByField**, **QueryByTimeRange**: direct access patterns on your facts.
+    * **SnapshotAt**: time-travel “view” of all namespace/fields as of a given timestamp.
+
+    // Example usage (see api/api.go for docs):
+    ctx := context.Background()
+    store, err := api.NewFactStore(ctx, "NotablyFacts", "user123")
+    …
+    store.CreateSchema(ctx)
+    store.AddFact(ctx, Fact{ … })
+    store.UpdateFact(ctx, Fact{ … })
+    store.DeleteFact(ctx, "profile", "name", "1", time.Now())
+    history, _ := store.QueryByField(ctx, "profile", "name", start, end)
+    snapshot, _ := store.SnapshotAt(ctx, time.Now())
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+### 2. Example client now supports a local emulator
+
+Modified cmd/example/main.go so you can point it at DynamoDB Local via the DYNAMODB_ENDPOINT_URL env var.
+
+    export DYNAMODB_ENDPOINT_URL=http://localhost:8000
+    go run ./cmd/example
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+### 3. README.md updated
+
+File: README.md
+
+    * **Environment Setup**: instructions for both real AWS and a local DynamoDB emulator (via Docker).
+    * **Programmatic API (Go)**: shows how to call into the new `api` package to create schemas, add/update/delete facts, query history, and take snapshots.
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Everything is go-fmt’ed and compiles cleanly. Let me know if you’d like any tweaks!
 
