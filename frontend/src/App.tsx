@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ApiClient, TableInfo, RowData, RowEvent } from "./api";
+import { ApiClient, type TableInfo, type RowData, type RowEvent } from "./api";
 
 export function App() {
   const [apiKey, setApiKey] = useState<string>(localStorage.getItem("apiKey") || "");
