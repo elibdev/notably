@@ -1,4 +1,4 @@
-I want to build a database on Dynamo DB that will be a flexible time versioned database kind of similar to datomic or XTDB in its architecture. 
+I want to build a database on Dynamo DB that will be a flexible time versioned database kind of similar to datomic or XTDB in its architecture.
 The basic building block is a tuple that represents the value of a single field at a given time, something like: (id, timestamp, namespace/fieldName, dataType, value).
 
 I want to build different indexes for common access patterns for looking things up based on field or time, or maybe even on value for certain data types.
@@ -43,74 +43,4 @@ export DYNAMODB_ENDPOINT_URL=http://localhost:8000
 export AWS_REGION=us-west-2      # region is still required
 export AWS_ACCESS_KEY_ID=foo     # use dummy credentials
 export AWS_SECRET_ACCESS_KEY=bar
-```
-
-## Programmatic API (Go)
-
-Use the `api` package for a convenient, unified API to manage schemas, facts, and time-travel queries:
-
-```go
-package main
-
-import (
-   "context"
-   "fmt"
-   "time"
-
-   "github.com/elibdev/notably/api"
-)
-
-func main() {
-   ctx := context.Background()
-   store, err := api.NewFactStore(ctx, "NotablyFacts", "user123")
-   if err != nil {
-       panic(err)
-   }
-
-   // Create the table schema (if not already exists)
-   if err := store.CreateSchema(ctx); err != nil {
-       panic(err)
-   }
-
-   // Add a fact (initial value)
-   fact := api.Fact{
-       ID:        "1",
-       Timestamp: time.Now().Add(-time.Hour),
-       Namespace: "profile",
-       FieldName: "name",
-       DataType:  "string",
-       Value:     "Alice",
-   }
-   if err := store.AddFact(ctx, fact); err != nil {
-       panic(err)
-   }
-
-   // Update the same fact (new version)
-   fact.Timestamp = time.Now()
-   fact.Value = "Alice Smith"
-   if err := store.UpdateFact(ctx, fact); err != nil {
-       panic(err)
-   }
-
-   // Delete the fact (tombstone)
-   if err := store.DeleteFact(ctx, "profile", "name", "1", time.Now()); err != nil {
-       panic(err)
-   }
-
-   // Query by field history
-   start := time.Now().Add(-2 * time.Hour)
-   end := time.Now()
-   history, err := store.QueryByField(ctx, "profile", "name", start, end)
-   if err != nil {
-       panic(err)
-   }
-   fmt.Println("Field history:", history)
-
-   // Take a snapshot at a point in time
-   snapshot, err := store.SnapshotAt(ctx, time.Now())
-   if err != nil {
-       panic(err)
-   }
-   fmt.Println("Snapshot:", snapshot)
-}
 ```

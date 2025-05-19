@@ -14,9 +14,9 @@ All endpoints are rooted at /.  (E.g. default :8080.)
 
 ### Authentication / Configuration
 
-For simplicity this initial version is single-tenant: you supply a fixed DynamoDB table and user at startup via flags.  (Later you could extend it to pick up a User-ID header, etc.)
+The server requires a DynamoDB table name which is provided via the `DYNAMODB_TABLE_NAME` environment variable. Authentication is done via the `X-User-ID` HTTP header which must be included with each request.
 
-    go run cmd/server/main.go --table MyTableName --user myUserID [--addr :8080]
+    go run cmd/server/main.go [--addr :8080]
 
 You may also point to a local DynamoDB emulator by setting DYNAMODB_ENDPOINT_URL.
 
@@ -24,134 +24,173 @@ You may also point to a local DynamoDB emulator by setting DYNAMODB_ENDPOINT_URL
 
 ### Endpoints
 
-#### 1. Create/Update a fact
+The API implements the following RESTful endpoints using Go 1.22's new pattern matching syntax:
 
-    POST /facts
-    Content-Type: application/json
+#### 1. Tables Management
 
-    {
-      "id":        "fact-123",
-      "timestamp": "2023-08-21T12:34:56Z",
-      "namespace": "user-profile",
-      "fieldName": "displayName",
-      "dataType":  "string",
-      "value":     "Alice"
-    }
-
-Returns the same fact back (HTTP 201).
-
--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-#### 2. Get the latest version of a fact
-
-    GET /facts/{id}
-
-Example response (HTTP 200):
-
-    {
-      "id":        "fact-123",
-      "timestamp": "2023-08-21T12:34:56Z",
-      "namespace": "user-profile",
-      "fieldName": "displayName",
-      "dataType":  "string",
-      "value":     "Alice"
-    }
-
-## If not found: HTTP 404 with body {"error":"..."}
-
-#### 3. Delete (tombstone) a fact
-
-    DELETE /facts/{id}
-
-On success returns HTTP 204 No Content.
-
-Internally this creates a “deleted” marker entry in DynamoDB with the current timestamp.
-
--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-#### 4. Query by time range (all namespaces)
-
-    GET /facts?start=<RFC3339>&end=<RFC3339>
-
-Example:
-
-    GET /facts?start=2023-08-20T00:00:00Z&end=2023-08-22T00:00:00Z
+```
+GET /tables
+```
+Lists all tables for the authenticated user.
 
 Response (HTTP 200):
-
+```json
+{
+  "tables": [
     {
-      "facts": [
-        { "id":"fact-1", "timestamp":"2023-08-20T01:00:00Z", ... },
-        { "id":"fact-2", "timestamp":"2023-08-21T05:00:00Z", ... }
-      ]
+      "name": "table1",
+      "createdAt": "2023-08-21T12:34:56Z"
     }
+  ]
+}
+```
 
--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+```
+POST /tables
+Content-Type: application/json
 
-#### 5. Query by namespace
+{
+  "name": "my-table"
+}
+```
+Creates a new table. Returns the created table info (HTTP 201).
 
-    GET /namespaces/{namespace}/facts?start=<RFC3339>&end=<RFC3339>
+#### 2. Row Operations
 
-E.g.:
+```
+GET /tables/{table}/rows
+```
+Lists all rows in a table.
 
-    GET /namespaces/user-profile/facts?start=2023-08-20T00:00:00Z&end=2023-08-22T00:00:00Z
-
-Returns only facts in that namespace over the time range.
-
--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-#### 6. Query by field (namespace + fieldName)
-
-    GET /namespaces/{namespace}/fields/{fieldName}/facts?start=<RFC3339>&end=<RFC3339>
-
-E.g.:
-
-    GET /namespaces/user-profile/fields/displayName/facts?start=...&end=...
-
-Returns the history (all versions) of that field.
-
--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-#### 7. Snapshot at a point in time
-
-    GET /snapshots?at=<RFC3339>
-
-Response JSON is a nested object: namespace → fieldName → latest fact as of that time:
-
+Response (HTTP 200):
+```json
+{
+  "rows": [
     {
-      "user-profile": {
-        "displayName": {
-          "id":"fact-123",
-          "timestamp":"2023-08-21T12:34:56Z",
-          "namespace":"user-profile",
-          "fieldName":"displayName",
-          "dataType":"string",
-          "value":"Alice"
-        },
-        "email": { ... }
-      },
-      "other-namespace": { ... }
+      "id": "row1",
+      "timestamp": "2023-08-21T12:34:56Z",
+      "values": { "key1": "value1", "key2": "value2" }
     }
+  ]
+}
+```
+
+```
+GET /tables/{table}/rows/{id}
+```
+Gets a specific row by ID.
+
+Response (HTTP 200):
+```json
+{
+  "id": "row1",
+  "timestamp": "2023-08-21T12:34:56Z",
+  "values": { "key1": "value1", "key2": "value2" }
+}
+```
+
+```
+POST /tables/{table}/rows
+Content-Type: application/json
+
+{
+  "id": "row1",
+  "values": { "key1": "value1", "key2": "value2" }
+}
+```
+Creates a new row. Returns the created row (HTTP 201).
+
+```
+PUT /tables/{table}/rows/{id}
+Content-Type: application/json
+
+{
+  "values": { "key1": "updated", "key2": "updated" }
+}
+```
+Updates an existing row. Returns the updated row (HTTP 200).
+
+```
+DELETE /tables/{table}/rows/{id}
+```
+Deletes a row (tombstone). Returns HTTP 204 No Content on success.
+
+#### 3. Table Snapshot and History
+
+```
+GET /tables/{table}/snapshot?at=<RFC3339>
+```
+Gets a snapshot of the table at a specific time. If `at` is not provided, uses the current time.
+
+Response (HTTP 200):
+```json
+{
+  "rows": [
+    {
+      "id": "row1",
+      "timestamp": "2023-08-21T12:34:56Z",
+      "values": { "key1": "value1", "key2": "value2" }
+    }
+  ]
+}
+```
+
+```
+GET /tables/{table}/history?start=<RFC3339>&end=<RFC3339>
+```
+Gets the history of all row events within a time range.
+
+Response (HTTP 200):
+```json
+{
+  "events": [
+    {
+      "id": "row1",
+      "timestamp": "2023-08-21T12:34:56Z",
+      "values": { "key1": "value1", "key2": "value2" }
+    }
+  ]
+}
+```
 
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 ## 2. Summary of Implementation
 
-    * **New file** `cmd/server/main.go` implementing the HTTP server using only the standard `net/http` package.
-    * The server **wraps the tested adapter** (`db.NewStoreAdapter(db.CreateStoreFromClient(legacyClient))`), so it drives the same `Store` implementation you already have tests for.
-    * All JSON request/response types are defined inline (`FactResponse`, `QueryResponse`), preserving the underlying `dynamo.Fact` shape.
+    * The server is implemented in `cmd/server/main.go` using the standard `net/http` package with Go 1.22's new routing features.
+    * The server uses Go 1.22's pattern matching syntax for routing, simplifying the code and making it more maintainable.
+    * Wildcards like `/tables/{table}/rows` and `/tables/{table}/rows/{id}` are used to capture path parameters.
+    * HTTP method matching (`GET`, `POST`, `PUT`, `DELETE`) is used to restrict routes to specific methods.
+    * Request parameters can be accessed via the new `PathValue()` method on the `http.Request` object.
+    * The server wraps the tested adapter (`db.NewStoreAdapter(db.CreateStoreFromClient(client))`).
     * Error responses are uniform JSON (`{"error":"..."}`) with appropriate HTTP status codes.
-    * The code parses RFC3339 timestamps for `start`, `end`, and `at` parameters.
-    * Flags `--table` and `--user` configure the DynamoDB table + user; you can override the DynamoDB endpoint via `DYNAMODB_ENDPOINT_URL` (for a local emulator).
+    * Authentication is handled via the `X-User-ID` header.
+    * The code parses RFC3339 timestamps for query parameters.
+    * The DynamoDB table name is configured via the `DYNAMODB_TABLE_NAME` environment variable.
     * No new external dependencies were added.
 
 You can build and run the server like so:
 
-    # (optionally start DynamoDB Local, set env vars)
-    go run cmd/server/main.go --table NotablyFacts --user example-user --addr :8080
+    # Set the required environment variable
+    export DYNAMODB_TABLE_NAME=NotablyFacts
+    
+    # Optionally set a custom DynamoDB endpoint for local testing
+    export DYNAMODB_ENDPOINT_URL=http://localhost:8000
+    
+    # Run the server
+    go run cmd/server/main.go --addr :8080
 
 Then interact with it via curl or any HTTP client using the design above.
 
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-Feel free to review the code in cmd/server/main.go and let me know if you’d like any tweaks!
+## 3. Testing
+
+A comprehensive test suite is available in `cmd/server/tests/api_test.go`, testing all endpoints and various scenarios. Run the tests with:
+
+```
+cd notably/cmd/server/tests
+go test -v
+```
+
+Feel free to review the code in cmd/server/main.go and let me know if you'd like any tweaks!
