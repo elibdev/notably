@@ -357,8 +357,30 @@ func (s *DynamoDBStore) QueryByTimeRange(ctx context.Context, opts QueryOptions)
 		ScanIndexForward: aws.Bool(opts.SortAscending),
 	}
 
-	// Apply time range if provided
-	if opts.StartTime != nil && opts.EndTime != nil {
+	// Make sure we always have a time range condition
+	if opts.StartTime == nil || opts.EndTime == nil {
+		// Default to a wide time range if not provided
+		startTime := time.Unix(0, 0) // Beginning of time
+		if opts.StartTime != nil {
+			startTime = *opts.StartTime
+		}
+
+		endTime := time.Now().UTC() // Current time
+		if opts.EndTime != nil {
+			endTime = *opts.EndTime
+		}
+
+		skStart := fmt.Sprintf("%s#", startTime.Format(time.RFC3339Nano))
+		skEnd := fmt.Sprintf("%s#", endTime.Format(time.RFC3339Nano))
+
+		queryInput.KeyConditionExpression = aws.String(
+			fmt.Sprintf("%s = :uid AND %s BETWEEN :start AND :end", pkName, skName),
+		)
+
+		queryInput.ExpressionAttributeValues[":start"] = &types.AttributeValueMemberS{Value: skStart}
+		queryInput.ExpressionAttributeValues[":end"] = &types.AttributeValueMemberS{Value: skEnd}
+	} else {
+		// Original code for when both StartTime and EndTime are provided
 		skStart := fmt.Sprintf("%s#", opts.StartTime.Format(time.RFC3339Nano))
 		skEnd := fmt.Sprintf("%s#", opts.EndTime.Format(time.RFC3339Nano))
 
@@ -510,10 +532,11 @@ func (s *DynamoDBStore) QueryByNamespace(ctx context.Context, namespace string, 
 // GetSnapshotAtTime implements Store.GetSnapshotAtTime
 func (s *DynamoDBStore) GetSnapshotAtTime(ctx context.Context, namespace string, at time.Time) (map[string]Fact, error) {
 	// Query all facts in the namespace up to the given time
+	epoch := time.Unix(0, 0)
 	queryOpts := QueryOptions{
-		StartTime:     &time.Time{}, // UNIX epoch
-		EndTime:       &at,          // Up to the specified time
-		SortAscending: false,        // Get newest first for each field
+		StartTime:     &epoch, // Proper UNIX epoch
+		EndTime:       &at,    // Up to the specified time
+		SortAscending: false,  // Get newest first for each field
 	}
 
 	var result *QueryResult
