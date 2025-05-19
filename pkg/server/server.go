@@ -9,14 +9,13 @@ import (
 	"os"
 	"time"
 
-	"github.com/elibdev/notably/internal/db"
-	"github.com/elibdev/notably/internal/dynamo"
+	"github.com/elibdev/notably/db"
+	"github.com/elibdev/notably/dynamo"
 	"github.com/elibdev/notably/pkg/auth"
 	"github.com/rs/cors"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
-	awsdynamo "github.com/aws/aws-sdk-go-v2/service/dynamodb"
 )
 
 // Config holds configuration for the server
@@ -78,6 +77,7 @@ func isValidName(name string) bool {
 func tableExists(ctx context.Context, store *db.StoreAdapter, userID, table string) bool {
 	snap, err := store.GetSnapshot(ctx, time.Now().UTC())
 	if err != nil {
+		log.Printf("Error checking if table exists for user %s, table %s: %v", userID, table, err)
 		return false
 	}
 
@@ -167,22 +167,28 @@ func (s *Server) getStoreForUser(ctx context.Context, userID string) (*db.StoreA
 	opts := []func(*config.LoadOptions) error{}
 	if s.config.DynamoEndpoint != "" {
 		resolver := aws.EndpointResolverFunc(func(service, region string) (aws.Endpoint, error) {
-			if service == awsdynamo.ServiceID {
-				return aws.Endpoint{URL: s.config.DynamoEndpoint, SigningRegion: region}, nil
-			}
-			return aws.Endpoint{}, &aws.EndpointNotFoundError{}
+			return aws.Endpoint{URL: s.config.DynamoEndpoint, SigningRegion: region}, nil
 		})
 		opts = append(opts, config.WithEndpointResolver(resolver))
 	}
 
 	cfg, err := config.LoadDefaultConfig(ctx, opts...)
 	if err != nil {
+		log.Printf("Error loading AWS config: %v", err)
 		return nil, fmt.Errorf("loading AWS config: %w", err)
 	}
 
-	// Create store using DynamoDBStore directly instead of legacy client adapter
-	dbStore := db.NewDynamoDBStore(cfg, s.config.TableName, userID)
-	store := db.NewStoreAdapter(dbStore)
+	// Create client and store
+	client := dynamo.NewClient(cfg, s.config.TableName, userID)
+
+	// Ensure the table exists (this is idempotent and safe to call every time)
+	if err := client.CreateTable(ctx); err != nil {
+		log.Printf("Error ensuring DynamoDB table exists: %v", err)
+		return nil, fmt.Errorf("ensuring table exists: %w", err)
+	}
+
+	// Create adapter for the store
+	store := db.NewStoreAdapter(db.CreateStoreFromClient(client))
 
 	return store, nil
 }
@@ -460,7 +466,8 @@ func (s *Server) handleCreateTable(w http.ResponseWriter, r *http.Request) {
 	// Get store for user
 	store, err := s.getStoreForUser(r.Context(), user.ID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "Failed to initialize storage")
+		log.Printf("User %s: Failed to initialize storage: %v", user.ID, err)
+		writeError(w, http.StatusInternalServerError, "Failed to initialize storage: "+err.Error())
 		return
 	}
 
@@ -497,6 +504,7 @@ func (s *Server) handleListTables(w http.ResponseWriter, r *http.Request) {
 
 	snap, err := store.GetSnapshot(r.Context(), time.Now().UTC())
 	if err != nil {
+		log.Printf("Failed to get tables for user %s: %v", user.ID, err)
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get tables: %v", err))
 		return
 	}

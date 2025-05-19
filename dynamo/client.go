@@ -116,10 +116,17 @@ func (c *Client) QueryByField(ctx context.Context, namespace, fieldName string, 
 		end = time.Now().UTC() // Use current time as default end
 	}
 
+	// Avoid potential timestamp formatting issues
+	if start.After(end) {
+		return nil, fmt.Errorf("invalid time range: start time (%v) is after end time (%v)", start, end)
+	}
+
 	fk := fmt.Sprintf("%s#%s#%s", c.userID, namespace, fieldName)
 	skStart := fmt.Sprintf("%s#", start.Format(time.RFC3339Nano))
 	skEnd := fmt.Sprintf("%s#", end.Format(time.RFC3339Nano))
-	out, err := c.db.Query(ctx, &dynamodb.QueryInput{
+
+	// Build query with required key conditions
+	queryInput := &dynamodb.QueryInput{
 		TableName:              aws.String(c.tableName),
 		IndexName:              aws.String(defaultGSIName),
 		KeyConditionExpression: aws.String(fmt.Sprintf("%s = :fk AND %s BETWEEN :start AND :end", fieldKeyName, skName)),
@@ -128,10 +135,15 @@ func (c *Client) QueryByField(ctx context.Context, namespace, fieldName string, 
 			":start": &types.AttributeValueMemberS{Value: skStart},
 			":end":   &types.AttributeValueMemberS{Value: skEnd},
 		},
-	})
-	if err != nil {
-		return nil, err
 	}
+
+	// Execute the query
+	out, err := c.db.Query(ctx, queryInput)
+	if err != nil {
+		return nil, fmt.Errorf("DynamoDB query failed for field %s.%s in time range [%v, %v]: %w",
+			namespace, fieldName, start, end, err)
+	}
+
 	return unmarshalFacts(out.Items)
 }
 
@@ -145,9 +157,16 @@ func (c *Client) QueryByTimeRange(ctx context.Context, start, end time.Time) ([]
 		end = time.Now().UTC() // Use current time as default end
 	}
 
+	// Avoid potential timestamp formatting issues
+	if start.After(end) {
+		return nil, fmt.Errorf("invalid time range: start time (%v) is after end time (%v)", start, end)
+	}
+
 	skStart := fmt.Sprintf("%s#", start.Format(time.RFC3339Nano))
 	skEnd := fmt.Sprintf("%s#", end.Format(time.RFC3339Nano))
-	out, err := c.db.Query(ctx, &dynamodb.QueryInput{
+
+	// Build query with required key conditions
+	queryInput := &dynamodb.QueryInput{
 		TableName:              aws.String(c.tableName),
 		KeyConditionExpression: aws.String(fmt.Sprintf("%s = :uid AND %s BETWEEN :start AND :end", pkName, skName)),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
@@ -155,10 +174,15 @@ func (c *Client) QueryByTimeRange(ctx context.Context, start, end time.Time) ([]
 			":start": &types.AttributeValueMemberS{Value: skStart},
 			":end":   &types.AttributeValueMemberS{Value: skEnd},
 		},
-	})
-	if err != nil {
-		return nil, err
 	}
+
+	// Execute the query
+	out, err := c.db.Query(ctx, queryInput)
+	if err != nil {
+		return nil, fmt.Errorf("DynamoDB query failed for user %s in time range [%v, %v]: %w",
+			c.userID, start, end, err)
+	}
+
 	return unmarshalFacts(out.Items)
 }
 

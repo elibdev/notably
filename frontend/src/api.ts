@@ -32,8 +32,14 @@ async function handleResponse(response: Response) {
   console.log(`Response body: ${text.substring(0, 200)}${text.length > 200 ? '...' : ''}`);
   const data = isJson ? JSON.parse(text) : { message: text };
   if (!response.ok) {
-    console.error("API Error:", data.error || data.message || "Unknown API error");
-    throw new Error(data.error || data.message || "API error");
+    const errorMsg = data.error || data.message || "Unknown API error";
+    console.error(`API Error (${response.status}):`, errorMsg);
+    // Preserve original error message but add status code for better debugging
+    const error = new Error(`${errorMsg} (Status ${response.status})`);
+    // Add additional properties to the error object for debugging
+    (error as any).status = response.status;
+    (error as any).responseData = data;
+    throw error;
   }
   return data;
 }
