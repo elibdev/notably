@@ -1,6 +1,6 @@
-Below is a brief user-facing design for the new HTTP/JSON API, followed by a summary of the implementation you can review. The code has already been added under cmd/server/main.go.
+# Notably Server
 
--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+A versioned database API with user authentication and API key management.
 
 ## 1. API Design
 
@@ -14,7 +14,7 @@ All endpoints are rooted at /.  (E.g. default :8080.)
 
 ### Authentication / Configuration
 
-The server requires a DynamoDB table name which is provided via the `DYNAMODB_TABLE_NAME` environment variable. Authentication is done via the `X-User-ID` HTTP header which must be included with each request.
+The server requires a DynamoDB table name which is provided via the `DYNAMODB_TABLE_NAME` environment variable. Authentication is done via API keys that you receive upon registration or login.
 
     go run cmd/server/main.go [--addr :8080]
 
@@ -26,10 +26,70 @@ You may also point to a local DynamoDB emulator by setting DYNAMODB_ENDPOINT_URL
 
 The API implements the following RESTful endpoints using Go 1.22's new pattern matching syntax:
 
-#### 1. Tables Management
+#### 1. Authentication
+
+```
+POST /auth/register
+Content-Type: application/json
+
+{
+  "username": "user123",
+  "email": "user@example.com",
+  "password": "securepassword"
+}
+```
+Registers a new user account. Returns user info and an API key (HTTP 201).
+
+Response:
+```json
+{
+  "id": "user123",
+  "username": "user123",
+  "email": "user@example.com",
+  "apiKey": "nb_a1b2c3d4e5f6g7h8i9j0..."
+}
+```
+
+```
+POST /auth/login
+Content-Type: application/json
+
+{
+  "username": "user123",
+  "password": "securepassword"
+}
+```
+Logs in a user. Returns user info and a new API key (HTTP 200).
+
+```
+GET /auth/keys
+Authorization: Bearer nb_your_api_key_here
+```
+Lists all API keys for the authenticated user.
+
+```
+POST /auth/keys
+Authorization: Bearer nb_your_api_key_here
+Content-Type: application/json
+
+{
+  "name": "My API Key",
+  "duration": 7776000
+}
+```
+Creates a new API key. Duration is in seconds (default: 90 days).
+
+```
+DELETE /auth/keys/{id}
+Authorization: Bearer nb_your_api_key_here
+```
+Revokes an API key.
+
+#### 2. Tables Management
 
 ```
 GET /tables
+Authorization: Bearer nb_your_api_key_here
 ```
 Lists all tables for the authenticated user.
 
@@ -47,6 +107,7 @@ Response (HTTP 200):
 
 ```
 POST /tables
+Authorization: Bearer nb_your_api_key_here
 Content-Type: application/json
 
 {
@@ -55,10 +116,11 @@ Content-Type: application/json
 ```
 Creates a new table. Returns the created table info (HTTP 201).
 
-#### 2. Row Operations
+#### 3. Row Operations
 
 ```
 GET /tables/{table}/rows
+Authorization: Bearer nb_your_api_key_here
 ```
 Lists all rows in a table.
 
@@ -77,6 +139,7 @@ Response (HTTP 200):
 
 ```
 GET /tables/{table}/rows/{id}
+Authorization: Bearer nb_your_api_key_here
 ```
 Gets a specific row by ID.
 
@@ -91,6 +154,7 @@ Response (HTTP 200):
 
 ```
 POST /tables/{table}/rows
+Authorization: Bearer nb_your_api_key_here
 Content-Type: application/json
 
 {
@@ -102,6 +166,7 @@ Creates a new row. Returns the created row (HTTP 201).
 
 ```
 PUT /tables/{table}/rows/{id}
+Authorization: Bearer nb_your_api_key_here
 Content-Type: application/json
 
 {
@@ -112,13 +177,15 @@ Updates an existing row. Returns the updated row (HTTP 200).
 
 ```
 DELETE /tables/{table}/rows/{id}
+Authorization: Bearer nb_your_api_key_here
 ```
 Deletes a row (tombstone). Returns HTTP 204 No Content on success.
 
-#### 3. Table Snapshot and History
+#### 4. Table Snapshot and History
 
 ```
 GET /tables/{table}/snapshot?at=<RFC3339>
+Authorization: Bearer nb_your_api_key_here
 ```
 Gets a snapshot of the table at a specific time. If `at` is not provided, uses the current time.
 
@@ -137,6 +204,7 @@ Response (HTTP 200):
 
 ```
 GET /tables/{table}/history?start=<RFC3339>&end=<RFC3339>
+Authorization: Bearer nb_your_api_key_here
 ```
 Gets the history of all row events within a time range.
 
@@ -155,19 +223,36 @@ Response (HTTP 200):
 
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-## 2. Summary of Implementation
+## 2. Project Structure
 
-    * The server is implemented in `cmd/server/main.go` using the standard `net/http` package with Go 1.22's new routing features.
-    * The server uses Go 1.22's pattern matching syntax for routing, simplifying the code and making it more maintainable.
-    * Wildcards like `/tables/{table}/rows` and `/tables/{table}/rows/{id}` are used to capture path parameters.
-    * HTTP method matching (`GET`, `POST`, `PUT`, `DELETE`) is used to restrict routes to specific methods.
-    * Request parameters can be accessed via the new `PathValue()` method on the `http.Request` object.
-    * The server wraps the tested adapter (`db.NewStoreAdapter(db.CreateStoreFromClient(client))`).
-    * Error responses are uniform JSON (`{"error":"..."}`) with appropriate HTTP status codes.
-    * Authentication is handled via the `X-User-ID` header.
-    * The code parses RFC3339 timestamps for query parameters.
-    * The DynamoDB table name is configured via the `DYNAMODB_TABLE_NAME` environment variable.
-    * No new external dependencies were added.
+The project has been reorganized into a cleaner structure:
+
+```
+notably/
+  ├── cmd/                # Command-line applications
+  │   └── server/         # Server CLI
+  ├── internal/           # Private packages
+  │   ├── db/             # Database interfaces and implementations
+  │   └── dynamo/         # AWS DynamoDB client
+  └── pkg/                # Public packages
+      ├── auth/           # Authentication and user management
+      └── server/         # HTTP server and API implementation
+```
+
+## 3. Summary of Implementation
+
+    * The server is implemented using the standard `net/http` package with Go 1.22's new routing features.
+    * User authentication with username/password and API key management
+    * Go 1.22's pattern matching syntax for routing, simplifying the code and making it more maintainable
+    * Wildcards like `/tables/{table}/rows` and `/tables/{table}/rows/{id}` to capture path parameters
+    * HTTP method matching (`GET`, `POST`, `PUT`, `DELETE`) to restrict routes to specific methods
+    * Request parameters accessed via the new `PathValue()` method on the `http.Request` object
+    * DynamoDB integration for persistent storage via the internal packages
+    * Uniform JSON error responses (`{"error":"..."}`) with appropriate HTTP status codes
+    * RFC3339 timestamps for query parameters and data versioning
+    * DynamoDB table name configured via the `DYNAMODB_TABLE_NAME` environment variable
+    * Secure password hashing and API key management
+    * Clean separation of concerns with modular package structure
 
 You can build and run the server like so:
 
@@ -184,13 +269,33 @@ Then interact with it via curl or any HTTP client using the design above.
 
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-## 3. Testing
+## 4. Authentication Flow
 
-A comprehensive test suite is available in `cmd/server/tests/api_test.go`, testing all endpoints and various scenarios. Run the tests with:
+1. Register a user account:
+   ```
+   curl -X POST http://localhost:8080/auth/register -d '{"username":"myuser","email":"user@example.com","password":"securepass"}'
+   ```
+
+2. Use the returned API key in subsequent requests:
+   ```
+   curl -X GET http://localhost:8080/tables -H "Authorization: Bearer nb_your_api_key_here"
+   ```
+
+3. Create additional API keys if needed:
+   ```
+   curl -X POST http://localhost:8080/auth/keys -H "Authorization: Bearer nb_your_api_key_here" -d '{"name":"My Development Key"}'
+   ```
+
+API keys are required for all endpoints except for registration and login.
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+## 5. Testing
+
+A comprehensive test suite is available testing all endpoints and various scenarios. Run the tests with:
 
 ```
-cd notably/cmd/server/tests
-go test -v
+go test -v ./...
 ```
 
-Feel free to review the code in cmd/server/main.go and let me know if you'd like any tweaks!
+Feel free to review the code and let me know if you'd like any tweaks!
