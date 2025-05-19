@@ -12,6 +12,7 @@ import (
 	"github.com/elibdev/notably/internal/db"
 	"github.com/elibdev/notably/internal/dynamo"
 	"github.com/elibdev/notably/pkg/auth"
+	"github.com/rs/cors"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -136,7 +137,20 @@ func (s *Server) registerRoutes() {
 // Run starts the server
 func (s *Server) Run() error {
 	log.Printf("Starting server on %s", s.config.Addr)
-	return http.ListenAndServe(s.config.Addr, s.mux)
+
+	// Create a CORS middleware
+	c := cors.New(cors.Options{
+		AllowedOrigins: []string{"http://localhost:3000"}, // Add your frontend URL
+		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders: []string{"Content-Type", "Authorization"},
+		// Enable Debugging for testing, consider disabling in production
+		Debug: true,
+	})
+
+	// Use the middleware
+	handler := c.Handler(s.mux)
+
+	return http.ListenAndServe(s.config.Addr, handler)
 }
 
 // Stop gracefully stops the server

@@ -43,4 +43,16 @@ export DYNAMODB_ENDPOINT_URL=http://localhost:8000
 export AWS_REGION=us-west-2      # region is still required
 export AWS_ACCESS_KEY_ID=foo     # use dummy credentials
 export AWS_SECRET_ACCESS_KEY=bar
+
+## Frontend
+
+To run the web frontend, navigate into the `frontend` directory and install dependencies:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The frontend will be available at http://localhost:3000 and proxies API requests to http://localhost:8080.
 ```

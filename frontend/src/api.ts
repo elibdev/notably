@@ -27,9 +27,12 @@ export interface LoginResponse extends RegisterResponse {}
 async function handleResponse(response: Response) {
   const contentType = response.headers.get("Content-Type") || "";
   const isJson = contentType.includes("application/json");
+  console.log(`Response status: ${response.status}, Content-Type: ${contentType}`);
   const text = await response.text();
+  console.log(`Response body: ${text.substring(0, 200)}${text.length > 200 ? '...' : ''}`);
   const data = isJson ? JSON.parse(text) : { message: text };
   if (!response.ok) {
+    console.error("API Error:", data.error || data.message || "Unknown API error");
     throw new Error(data.error || data.message || "API error");
   }
   return data;
@@ -40,13 +43,16 @@ export class ApiClient {
   
   constructor(apiKey: string) {
     this.apiKey = apiKey;
+    console.log(`ApiClient initialized with key: ${apiKey ? apiKey.substring(0, 5) + '...' : 'none'}`);
   }
 
   private headers() {
-    return {
+    const headers = {
       "Content-Type": "application/json",
       Authorization: `Bearer ${this.apiKey}`,
     };
+    console.log("Request headers:", { ...headers, Authorization: "Bearer [REDACTED]" });
+    return headers;
   }
 
   static async register(
@@ -54,11 +60,13 @@ export class ApiClient {
     email: string,
     password: string,
   ): Promise<RegisterResponse> {
+    console.log(`Attempting to register user: ${username}, email: ${email}`);
     const res = await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, email, password }),
     });
+    console.log(`Register response status: ${res.status}`);
     return handleResponse(res);
   }
 
@@ -70,13 +78,16 @@ export class ApiClient {
       body: JSON.stringify({ username, password }),
     });
     console.log("Login response status:", res.status);
+    console.log("Login response headers:", Object.fromEntries([...res.headers.entries()]));
     return handleResponse(res);
   }
 
   async listTables(): Promise<{ tables: TableInfo[] }> {
+    console.log("Fetching tables list");
     const res = await fetch("/api/tables", {
       headers: this.headers(),
     });
+    console.log(`Tables list response status: ${res.status}`);
     return handleResponse(res);
   }
 

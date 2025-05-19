@@ -33,10 +33,10 @@ type Fact struct {
 
 // QueryOptions provides filtering and pagination options for queries
 type QueryOptions struct {
-	StartTime    *time.Time
-	EndTime      *time.Time
-	Limit        *int32
-	NextToken    *string
+	StartTime     *time.Time
+	EndTime       *time.Time
+	Limit         *int32
+	NextToken     *string
 	SortAscending bool
 }
 
@@ -61,15 +61,15 @@ type Store interface {
 	QueryByField(ctx context.Context, namespace, fieldName string, opts QueryOptions) (*QueryResult, error)
 	QueryByTimeRange(ctx context.Context, opts QueryOptions) (*QueryResult, error)
 	QueryByNamespace(ctx context.Context, namespace string, opts QueryOptions) (*QueryResult, error)
-	
+
 	// Snapshot operations
 	GetSnapshotAtTime(ctx context.Context, namespace string, at time.Time) (map[string]Fact, error)
 }
 
 // Config holds the configuration for the DynamoDB store
 type Config struct {
-	TableName  string
-	UserID     string
+	TableName    string
+	UserID       string
 	DynamoClient *dynamodb.Client
 }
 
@@ -94,7 +94,7 @@ func IsNotFound(err error) bool {
 	} else {
 		return false
 	}
-	
+
 	_, ok := storeErr.Err.(*types.ResourceNotFoundException)
 	return ok
 }

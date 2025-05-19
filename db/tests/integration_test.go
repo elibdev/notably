@@ -109,7 +109,7 @@ func testIntegrationBasicCRUD(t *testing.T, ctx context.Context, store db.Store)
 	// Create a test fact
 	now := time.Now().UTC()
 	factID := fmt.Sprintf("test-fact-%d", now.UnixNano())
-	
+
 	fact := &db.Fact{
 		ID:        factID,
 		Timestamp: now,
@@ -163,7 +163,7 @@ func testIntegrationQuerying(t *testing.T, ctx context.Context, store db.Store) 
 	// Create multiple facts to query
 	now := time.Now().UTC()
 	baseTime := now
-	
+
 	// Add facts at different times
 	for i := 0; i < 5; i++ {
 		fact := &db.Fact{
@@ -183,21 +183,21 @@ func testIntegrationQuerying(t *testing.T, ctx context.Context, store db.Store) 
 	t.Run("QueryByField", func(t *testing.T) {
 		startTime := baseTime.Add(-time.Minute)
 		endTime := baseTime.Add(5 * time.Minute)
-		
+
 		result, err := store.QueryByField(ctx, "query-ns", "field-0", db.QueryOptions{
 			StartTime:     &startTime,
 			EndTime:       &endTime,
 			SortAscending: true,
 		})
-		
+
 		require.NoError(t, err, "Should query by field")
 		assert.Len(t, result.Facts, 3, "Should return 3 facts for field-0")
-		
+
 		// Verify sorting
 		for i := 1; i < len(result.Facts); i++ {
-			assert.True(t, 
-				result.Facts[i-1].Timestamp.Before(result.Facts[i].Timestamp) || 
-				result.Facts[i-1].Timestamp.Equal(result.Facts[i].Timestamp),
+			assert.True(t,
+				result.Facts[i-1].Timestamp.Before(result.Facts[i].Timestamp) ||
+					result.Facts[i-1].Timestamp.Equal(result.Facts[i].Timestamp),
 				"Facts should be sorted by timestamp ascending")
 		}
 	})
@@ -206,21 +206,21 @@ func testIntegrationQuerying(t *testing.T, ctx context.Context, store db.Store) 
 	t.Run("QueryByNamespace", func(t *testing.T) {
 		startTime := baseTime.Add(-time.Minute)
 		endTime := baseTime.Add(5 * time.Minute)
-		
+
 		result, err := store.QueryByNamespace(ctx, "query-ns", db.QueryOptions{
 			StartTime:     &startTime,
 			EndTime:       &endTime,
 			SortAscending: false, // descending order
 		})
-		
+
 		require.NoError(t, err, "Should query by namespace")
 		assert.Len(t, result.Facts, 5, "Should return all 5 facts in the namespace")
-		
+
 		// Verify sorting
 		for i := 1; i < len(result.Facts); i++ {
-			assert.True(t, 
-				result.Facts[i-1].Timestamp.After(result.Facts[i].Timestamp) || 
-				result.Facts[i-1].Timestamp.Equal(result.Facts[i].Timestamp),
+			assert.True(t,
+				result.Facts[i-1].Timestamp.After(result.Facts[i].Timestamp) ||
+					result.Facts[i-1].Timestamp.Equal(result.Facts[i].Timestamp),
 				"Facts should be sorted by timestamp descending")
 		}
 	})
@@ -230,13 +230,13 @@ func testIntegrationQuerying(t *testing.T, ctx context.Context, store db.Store) 
 		// Query only facts in the middle of our time range
 		startTime := baseTime.Add(1 * time.Minute)
 		endTime := baseTime.Add(3 * time.Minute)
-		
+
 		result, err := store.QueryByTimeRange(ctx, db.QueryOptions{
 			StartTime:     &startTime,
 			EndTime:       &endTime,
 			SortAscending: true,
 		})
-		
+
 		require.NoError(t, err, "Should query by time range")
 		assert.Len(t, result.Facts, 3, "Should return 3 facts in the time range")
 	})
@@ -247,7 +247,7 @@ func testIntegrationHistoricalData(t *testing.T, ctx context.Context, store db.S
 	// Create a series of updates to a single field
 	now := time.Now().UTC()
 	factID := fmt.Sprintf("history-fact-%d", now.UnixNano())
-	
+
 	// Initial state
 	initialFact := &db.Fact{
 		ID:        factID,
@@ -260,7 +260,7 @@ func testIntegrationHistoricalData(t *testing.T, ctx context.Context, store db.S
 	}
 	err := store.PutFact(ctx, initialFact)
 	require.NoError(t, err, "Should add initial fact")
-	
+
 	// First update - 1 minute later
 	update1 := &db.Fact{
 		ID:        factID,
@@ -273,7 +273,7 @@ func testIntegrationHistoricalData(t *testing.T, ctx context.Context, store db.S
 	}
 	err = store.PutFact(ctx, update1)
 	require.NoError(t, err, "Should add first update")
-	
+
 	// Second update - 2 minutes later
 	update2 := &db.Fact{
 		ID:        factID,
@@ -286,46 +286,46 @@ func testIntegrationHistoricalData(t *testing.T, ctx context.Context, store db.S
 	}
 	err = store.PutFact(ctx, update2)
 	require.NoError(t, err, "Should add second update")
-	
+
 	// Test GetSnapshotAtTime at different points in time
 	t.Run("Snapshot at start", func(t *testing.T) {
-		snapshot, err := store.GetSnapshotAtTime(ctx, "history-ns", now.Add(30 * time.Second))
+		snapshot, err := store.GetSnapshotAtTime(ctx, "history-ns", now.Add(30*time.Second))
 		require.NoError(t, err, "Should get snapshot")
-		
+
 		fact, ok := snapshot["history-ns#versioned-field"]
 		assert.True(t, ok, "Field should be in snapshot")
 		assert.Equal(t, "version-1", fact.Value, "Should have initial version")
 	})
-	
+
 	t.Run("Snapshot after first update", func(t *testing.T) {
-		snapshot, err := store.GetSnapshotAtTime(ctx, "history-ns", now.Add(90 * time.Second))
+		snapshot, err := store.GetSnapshotAtTime(ctx, "history-ns", now.Add(90*time.Second))
 		require.NoError(t, err, "Should get snapshot")
-		
+
 		fact, ok := snapshot["history-ns#versioned-field"]
 		assert.True(t, ok, "Field should be in snapshot")
 		assert.Equal(t, "version-2", fact.Value, "Should have first update")
 	})
-	
+
 	t.Run("Snapshot at latest state", func(t *testing.T) {
-		snapshot, err := store.GetSnapshotAtTime(ctx, "history-ns", now.Add(3 * time.Minute))
+		snapshot, err := store.GetSnapshotAtTime(ctx, "history-ns", now.Add(3*time.Minute))
 		require.NoError(t, err, "Should get snapshot")
-		
+
 		fact, ok := snapshot["history-ns#versioned-field"]
 		assert.True(t, ok, "Field should be in snapshot")
 		assert.Equal(t, "version-3", fact.Value, "Should have latest version")
 	})
-	
+
 	// Test historical query
 	t.Run("Historical query", func(t *testing.T) {
 		startTime := now.Add(-time.Minute)
 		endTime := now.Add(3 * time.Minute)
-		
+
 		result, err := store.QueryByField(ctx, "history-ns", "versioned-field", db.QueryOptions{
 			StartTime:     &startTime,
 			EndTime:       &endTime,
 			SortAscending: true,
 		})
-		
+
 		require.NoError(t, err, "Should query versions")
 		assert.Len(t, result.Facts, 3, "Should return all 3 versions")
 		assert.Equal(t, "version-1", result.Facts[0].Value, "First should be version-1")
@@ -338,7 +338,7 @@ func testIntegrationHistoricalData(t *testing.T, ctx context.Context, store db.S
 func testIntegrationPagination(t *testing.T, ctx context.Context, store db.Store) {
 	// Insert many facts to test pagination
 	now := time.Now().UTC()
-	
+
 	// Create 25 facts
 	for i := 0; i < 25; i++ {
 		fact := &db.Fact{
@@ -353,13 +353,13 @@ func testIntegrationPagination(t *testing.T, ctx context.Context, store db.Store
 		err := store.PutFact(ctx, fact)
 		require.NoError(t, err, "Should add fact for pagination")
 	}
-	
+
 	// Test pagination with small page size
 	t.Run("Paginated query", func(t *testing.T) {
 		startTime := now.Add(-time.Minute)
 		endTime := now.Add(5 * time.Minute)
 		limit := int32(10)
-		
+
 		// First page
 		result1, err := store.QueryByField(ctx, "pagination-ns", "paginated-field", db.QueryOptions{
 			StartTime:     &startTime,
@@ -367,11 +367,11 @@ func testIntegrationPagination(t *testing.T, ctx context.Context, store db.Store
 			Limit:         &limit,
 			SortAscending: true,
 		})
-		
+
 		require.NoError(t, err, "Should query first page")
 		assert.Len(t, result1.Facts, 10, "First page should have 10 facts")
 		assert.NotNil(t, result1.NextToken, "Should have pagination token")
-		
+
 		// Second page
 		result2, err := store.QueryByField(ctx, "pagination-ns", "paginated-field", db.QueryOptions{
 			StartTime:     &startTime,
@@ -380,11 +380,11 @@ func testIntegrationPagination(t *testing.T, ctx context.Context, store db.Store
 			NextToken:     result1.NextToken,
 			SortAscending: true,
 		})
-		
+
 		require.NoError(t, err, "Should query second page")
 		assert.Len(t, result2.Facts, 10, "Second page should have 10 facts")
 		assert.NotNil(t, result2.NextToken, "Should have pagination token")
-		
+
 		// Third page (should have 5 remaining facts)
 		result3, err := store.QueryByField(ctx, "pagination-ns", "paginated-field", db.QueryOptions{
 			StartTime:     &startTime,
@@ -393,11 +393,11 @@ func testIntegrationPagination(t *testing.T, ctx context.Context, store db.Store
 			NextToken:     result2.NextToken,
 			SortAscending: true,
 		})
-		
+
 		require.NoError(t, err, "Should query third page")
 		assert.Len(t, result3.Facts, 5, "Third page should have 5 facts")
 		assert.Nil(t, result3.NextToken, "Should not have another pagination token")
-		
+
 		// Verify we got all 25 facts with no duplicates
 		allValues := make(map[string]bool)
 		for _, fact := range result1.Facts {
@@ -409,7 +409,7 @@ func testIntegrationPagination(t *testing.T, ctx context.Context, store db.Store
 		for _, fact := range result3.Facts {
 			allValues[fact.Value] = true
 		}
-		
+
 		assert.Len(t, allValues, 25, "Should have 25 unique values")
 	})
 }
@@ -422,7 +422,7 @@ func testIntegrationErrorHandling(t *testing.T, ctx context.Context, store db.St
 		assert.Error(t, err, "Should return error for non-existent fact")
 		assert.True(t, db.IsNotFound(err), "Error should be not found type")
 	})
-	
+
 	// Test invalid fact
 	t.Run("Invalid fact", func(t *testing.T) {
 		invalidFact := &db.Fact{
@@ -432,11 +432,11 @@ func testIntegrationErrorHandling(t *testing.T, ctx context.Context, store db.St
 			FieldName: "test-field",
 			Value:     "test-value",
 		}
-		
+
 		err := store.PutFact(ctx, invalidFact)
 		assert.Error(t, err, "Should reject fact without ID")
 	})
-	
+
 	// Test nil fact
 	t.Run("Nil fact", func(t *testing.T) {
 		err := store.PutFact(ctx, nil)
@@ -449,7 +449,7 @@ func testIntegrationConcurrentAccess(t *testing.T, ctx context.Context, store db
 	// Create a fact to update concurrently
 	now := time.Now().UTC()
 	factID := fmt.Sprintf("concurrent-fact-%d", now.UnixNano())
-	
+
 	baseFact := &db.Fact{
 		ID:        factID,
 		Timestamp: now,
@@ -459,20 +459,20 @@ func testIntegrationConcurrentAccess(t *testing.T, ctx context.Context, store db
 		Value:     "0",
 		UserID:    "test-user",
 	}
-	
+
 	err := store.PutFact(ctx, baseFact)
 	require.NoError(t, err, "Should add initial fact")
-	
+
 	// Run concurrent updates
 	const numGoroutines = 5
 	const updatesPerGoroutine = 3
-	
+
 	done := make(chan bool, numGoroutines)
-	
+
 	for g := 0; g < numGoroutines; g++ {
 		go func(goroutineID int) {
 			baseTime := now.Add(time.Duration(goroutineID) * time.Millisecond)
-			
+
 			for i := 0; i < updatesPerGoroutine; i++ {
 				updateFact := &db.Fact{
 					ID:        factID,
@@ -483,43 +483,43 @@ func testIntegrationConcurrentAccess(t *testing.T, ctx context.Context, store db
 					Value:     fmt.Sprintf("g%d-u%d", goroutineID, i),
 					UserID:    "test-user",
 				}
-				
+
 				err := store.PutFact(ctx, updateFact)
 				if err != nil {
 					t.Logf("Concurrent update failed: %v", err)
 				}
 			}
-			
+
 			done <- true
 		}(g)
 	}
-	
+
 	// Wait for all goroutines to complete
 	for g := 0; g < numGoroutines; g++ {
 		<-done
 	}
-	
+
 	// Query all versions of the fact
 	startTime := now.Add(-time.Minute)
 	endTime := now.Add(5 * time.Minute)
-	
+
 	result, err := store.QueryByField(ctx, "concurrent-ns", "concurrent-field", db.QueryOptions{
 		StartTime:     &startTime,
 		EndTime:       &endTime,
 		SortAscending: true,
 	})
-	
+
 	require.NoError(t, err, "Should query concurrent updates")
-	
+
 	// We should have the initial fact + all concurrent updates
 	expectedCount := 1 + (numGoroutines * updatesPerGoroutine)
 	assert.Len(t, result.Facts, expectedCount, "Should have expected number of versions")
-	
+
 	// Verify timestamps are in ascending order
 	for i := 1; i < len(result.Facts); i++ {
-		assert.True(t, 
-			result.Facts[i-1].Timestamp.Before(result.Facts[i].Timestamp) || 
-			result.Facts[i-1].Timestamp.Equal(result.Facts[i].Timestamp),
+		assert.True(t,
+			result.Facts[i-1].Timestamp.Before(result.Facts[i].Timestamp) ||
+				result.Facts[i-1].Timestamp.Equal(result.Facts[i].Timestamp),
 			"Facts should be sorted by timestamp")
 	}
 }

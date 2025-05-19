@@ -50,7 +50,7 @@ func NewDynamoDBStoreFromEnv(ctx context.Context, tableName, userID string) (*Dy
 		})
 		opts = append(opts, config.WithEndpointResolver(resolver))
 	}
-	
+
 	cfg, err := config.LoadDefaultConfig(ctx, opts...)
 	if err != nil {
 		return nil, &StoreError{
@@ -58,7 +58,7 @@ func NewDynamoDBStoreFromEnv(ctx context.Context, tableName, userID string) (*Dy
 			Err:       fmt.Errorf("loading AWS config: %w", err),
 		}
 	}
-	
+
 	return &DynamoDBStore{
 		db:        dynamodb.NewFromConfig(cfg),
 		tableName: tableName,
@@ -113,7 +113,7 @@ func (s *DynamoDBStore) CreateTable(ctx context.Context) error {
 			},
 		},
 	}
-	
+
 	_, err := s.db.CreateTable(ctx, input)
 	if err != nil {
 		var existsErr *types.ResourceInUseException
@@ -124,7 +124,7 @@ func (s *DynamoDBStore) CreateTable(ctx context.Context) error {
 			}
 		}
 	}
-	
+
 	waiter := dynamodb.NewTableExistsWaiter(s.db)
 	return waiter.Wait(ctx, &dynamodb.DescribeTableInput{TableName: aws.String(s.tableName)}, 5*time.Minute)
 }
@@ -134,14 +134,14 @@ func (s *DynamoDBStore) DeleteTable(ctx context.Context) error {
 	_, err := s.db.DeleteTable(ctx, &dynamodb.DeleteTableInput{
 		TableName: aws.String(s.tableName),
 	})
-	
+
 	if err != nil {
 		return &StoreError{
 			Operation: "DeleteTable",
 			Err:       fmt.Errorf("delete table failed: %w", err),
 		}
 	}
-	
+
 	waiter := dynamodb.NewTableNotExistsWaiter(s.db)
 	return waiter.Wait(ctx, &dynamodb.DescribeTableInput{TableName: aws.String(s.tableName)}, 5*time.Minute)
 }
@@ -161,44 +161,44 @@ func (s *DynamoDBStore) PutFact(ctx context.Context, fact *Fact) error {
 			Err:       errors.New("fact ID cannot be empty"),
 		}
 	}
-	
+
 	if fact.UserID == "" {
 		fact.UserID = s.userID
 	}
-	
+
 	// Create sort key in format timestamp#id
 	sk := fmt.Sprintf("%s#%s", fact.Timestamp.Format(time.RFC3339Nano), fact.ID)
 	// Create field key in format userId#namespace#fieldName
 	fk := fmt.Sprintf("%s#%s#%s", s.userID, fact.Namespace, fact.FieldName)
-	
+
 	// Prepare item for DynamoDB
 	item := map[string]types.AttributeValue{
-		pkName:        &types.AttributeValueMemberS{Value: s.userID},
-		skName:        &types.AttributeValueMemberS{Value: sk},
-		"ID":          &types.AttributeValueMemberS{Value: fact.ID},
-		"Namespace":   &types.AttributeValueMemberS{Value: fact.Namespace},
-		"FieldName":   &types.AttributeValueMemberS{Value: fact.FieldName},
-		"DataType":    &types.AttributeValueMemberS{Value: string(fact.DataType)},
-		"Value":       &types.AttributeValueMemberS{Value: fact.Value},
-		fieldKeyName:  &types.AttributeValueMemberS{Value: fk},
+		pkName:       &types.AttributeValueMemberS{Value: s.userID},
+		skName:       &types.AttributeValueMemberS{Value: sk},
+		"ID":         &types.AttributeValueMemberS{Value: fact.ID},
+		"Namespace":  &types.AttributeValueMemberS{Value: fact.Namespace},
+		"FieldName":  &types.AttributeValueMemberS{Value: fact.FieldName},
+		"DataType":   &types.AttributeValueMemberS{Value: string(fact.DataType)},
+		"Value":      &types.AttributeValueMemberS{Value: fact.Value},
+		fieldKeyName: &types.AttributeValueMemberS{Value: fk},
 	}
-	
+
 	if fact.IsDeleted {
 		item[isDeletedName] = &types.AttributeValueMemberBOOL{Value: true}
 	}
-	
+
 	_, err := s.db.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String(s.tableName),
 		Item:      item,
 	})
-	
+
 	if err != nil {
 		return &StoreError{
 			Operation: "PutFact",
 			Err:       fmt.Errorf("put fact failed: %w", err),
 		}
 	}
-	
+
 	return nil
 }
 
@@ -216,21 +216,21 @@ func (s *DynamoDBStore) GetFact(ctx context.Context, id string) (*Fact, error) {
 		ScanIndexForward: aws.Bool(false), // descending order by sort key
 		Limit:            aws.Int32(1),    // just get the latest
 	})
-	
+
 	if err != nil {
 		return nil, &StoreError{
 			Operation: "GetFact",
 			Err:       fmt.Errorf("get fact failed: %w", err),
 		}
 	}
-	
+
 	if result.Count == 0 {
 		return nil, &StoreError{
 			Operation: "GetFact",
 			Err:       &types.ResourceNotFoundException{Message: aws.String("fact not found")},
 		}
 	}
-	
+
 	facts, err := unmarshalFactItems(result.Items)
 	if err != nil {
 		return nil, &StoreError{
@@ -238,7 +238,7 @@ func (s *DynamoDBStore) GetFact(ctx context.Context, id string) (*Fact, error) {
 			Err:       fmt.Errorf("unmarshal failed: %w", err),
 		}
 	}
-	
+
 	return &facts[0], nil
 }
 
@@ -252,11 +252,11 @@ func (s *DynamoDBStore) DeleteFact(ctx context.Context, id string) error {
 			Err:       fmt.Errorf("get fact failed: %w", err),
 		}
 	}
-	
+
 	// Set deletion marker
 	fact.IsDeleted = true
 	fact.Timestamp = time.Now()
-	
+
 	// Put the deletion marker
 	return s.PutFact(ctx, fact)
 }
@@ -265,7 +265,7 @@ func (s *DynamoDBStore) DeleteFact(ctx context.Context, id string) error {
 func (s *DynamoDBStore) QueryByField(ctx context.Context, namespace, fieldName string, opts QueryOptions) (*QueryResult, error) {
 	// Create field key
 	fk := fmt.Sprintf("%s#%s#%s", s.userID, namespace, fieldName)
-	
+
 	// Build query params
 	queryInput := &dynamodb.QueryInput{
 		TableName:              aws.String(s.tableName),
@@ -276,25 +276,25 @@ func (s *DynamoDBStore) QueryByField(ctx context.Context, namespace, fieldName s
 		},
 		ScanIndexForward: aws.Bool(opts.SortAscending),
 	}
-	
+
 	// Apply time range if provided
 	if opts.StartTime != nil && opts.EndTime != nil {
 		skStart := fmt.Sprintf("%s#", opts.StartTime.Format(time.RFC3339Nano))
 		skEnd := fmt.Sprintf("%s#", opts.EndTime.Format(time.RFC3339Nano))
-		
+
 		queryInput.KeyConditionExpression = aws.String(
 			fmt.Sprintf("%s = :fk AND %s BETWEEN :start AND :end", fieldKeyName, skName),
 		)
-		
+
 		queryInput.ExpressionAttributeValues[":start"] = &types.AttributeValueMemberS{Value: skStart}
 		queryInput.ExpressionAttributeValues[":end"] = &types.AttributeValueMemberS{Value: skEnd}
 	}
-	
+
 	// Apply limit if provided
 	if opts.Limit != nil {
 		queryInput.Limit = opts.Limit
 	}
-	
+
 	// Apply pagination token if provided
 	if opts.NextToken != nil {
 		var exclusiveStartKey map[string]types.AttributeValue
@@ -306,7 +306,7 @@ func (s *DynamoDBStore) QueryByField(ctx context.Context, namespace, fieldName s
 		}
 		queryInput.ExclusiveStartKey = exclusiveStartKey
 	}
-	
+
 	// Execute query
 	result, err := s.db.Query(ctx, queryInput)
 	if err != nil {
@@ -315,7 +315,7 @@ func (s *DynamoDBStore) QueryByField(ctx context.Context, namespace, fieldName s
 			Err:       fmt.Errorf("query failed: %w", err),
 		}
 	}
-	
+
 	// Process results
 	facts, err := unmarshalFactItems(result.Items)
 	if err != nil {
@@ -324,7 +324,7 @@ func (s *DynamoDBStore) QueryByField(ctx context.Context, namespace, fieldName s
 			Err:       fmt.Errorf("unmarshal failed: %w", err),
 		}
 	}
-	
+
 	// Create pagination token if there's more data
 	var nextToken *string
 	if result.LastEvaluatedKey != nil {
@@ -338,7 +338,7 @@ func (s *DynamoDBStore) QueryByField(ctx context.Context, namespace, fieldName s
 		token := string(tokenBytes)
 		nextToken = &token
 	}
-	
+
 	return &QueryResult{
 		Facts:     facts,
 		NextToken: nextToken,
@@ -356,25 +356,25 @@ func (s *DynamoDBStore) QueryByTimeRange(ctx context.Context, opts QueryOptions)
 		},
 		ScanIndexForward: aws.Bool(opts.SortAscending),
 	}
-	
+
 	// Apply time range if provided
 	if opts.StartTime != nil && opts.EndTime != nil {
 		skStart := fmt.Sprintf("%s#", opts.StartTime.Format(time.RFC3339Nano))
 		skEnd := fmt.Sprintf("%s#", opts.EndTime.Format(time.RFC3339Nano))
-		
+
 		queryInput.KeyConditionExpression = aws.String(
 			fmt.Sprintf("%s = :uid AND %s BETWEEN :start AND :end", pkName, skName),
 		)
-		
+
 		queryInput.ExpressionAttributeValues[":start"] = &types.AttributeValueMemberS{Value: skStart}
 		queryInput.ExpressionAttributeValues[":end"] = &types.AttributeValueMemberS{Value: skEnd}
 	}
-	
+
 	// Apply limit if provided
 	if opts.Limit != nil {
 		queryInput.Limit = opts.Limit
 	}
-	
+
 	// Apply pagination token if provided
 	if opts.NextToken != nil {
 		var exclusiveStartKey map[string]types.AttributeValue
@@ -386,7 +386,7 @@ func (s *DynamoDBStore) QueryByTimeRange(ctx context.Context, opts QueryOptions)
 		}
 		queryInput.ExclusiveStartKey = exclusiveStartKey
 	}
-	
+
 	// Execute query
 	result, err := s.db.Query(ctx, queryInput)
 	if err != nil {
@@ -395,7 +395,7 @@ func (s *DynamoDBStore) QueryByTimeRange(ctx context.Context, opts QueryOptions)
 			Err:       fmt.Errorf("query failed: %w", err),
 		}
 	}
-	
+
 	// Process results
 	facts, err := unmarshalFactItems(result.Items)
 	if err != nil {
@@ -404,7 +404,7 @@ func (s *DynamoDBStore) QueryByTimeRange(ctx context.Context, opts QueryOptions)
 			Err:       fmt.Errorf("unmarshal failed: %w", err),
 		}
 	}
-	
+
 	// Create pagination token if there's more data
 	var nextToken *string
 	if result.LastEvaluatedKey != nil {
@@ -418,7 +418,7 @@ func (s *DynamoDBStore) QueryByTimeRange(ctx context.Context, opts QueryOptions)
 		token := string(tokenBytes)
 		nextToken = &token
 	}
-	
+
 	return &QueryResult{
 		Facts:     facts,
 		NextToken: nextToken,
@@ -438,25 +438,25 @@ func (s *DynamoDBStore) QueryByNamespace(ctx context.Context, namespace string, 
 		},
 		ScanIndexForward: aws.Bool(opts.SortAscending),
 	}
-	
+
 	// Apply time range if provided
 	if opts.StartTime != nil && opts.EndTime != nil {
 		skStart := fmt.Sprintf("%s#", opts.StartTime.Format(time.RFC3339Nano))
 		skEnd := fmt.Sprintf("%s#", opts.EndTime.Format(time.RFC3339Nano))
-		
+
 		queryInput.KeyConditionExpression = aws.String(
 			fmt.Sprintf("%s = :uid AND %s BETWEEN :start AND :end", pkName, skName),
 		)
-		
+
 		queryInput.ExpressionAttributeValues[":start"] = &types.AttributeValueMemberS{Value: skStart}
 		queryInput.ExpressionAttributeValues[":end"] = &types.AttributeValueMemberS{Value: skEnd}
 	}
-	
+
 	// Apply limit if provided
 	if opts.Limit != nil {
 		queryInput.Limit = opts.Limit
 	}
-	
+
 	// Apply pagination token if provided
 	if opts.NextToken != nil {
 		var exclusiveStartKey map[string]types.AttributeValue
@@ -468,7 +468,7 @@ func (s *DynamoDBStore) QueryByNamespace(ctx context.Context, namespace string, 
 		}
 		queryInput.ExclusiveStartKey = exclusiveStartKey
 	}
-	
+
 	// Execute query
 	result, err := s.db.Query(ctx, queryInput)
 	if err != nil {
@@ -477,7 +477,7 @@ func (s *DynamoDBStore) QueryByNamespace(ctx context.Context, namespace string, 
 			Err:       fmt.Errorf("query failed: %w", err),
 		}
 	}
-	
+
 	// Process results
 	facts, err := unmarshalFactItems(result.Items)
 	if err != nil {
@@ -486,7 +486,7 @@ func (s *DynamoDBStore) QueryByNamespace(ctx context.Context, namespace string, 
 			Err:       fmt.Errorf("unmarshal failed: %w", err),
 		}
 	}
-	
+
 	// Create pagination token if there's more data
 	var nextToken *string
 	if result.LastEvaluatedKey != nil {
@@ -500,7 +500,7 @@ func (s *DynamoDBStore) QueryByNamespace(ctx context.Context, namespace string, 
 		token := string(tokenBytes)
 		nextToken = &token
 	}
-	
+
 	return &QueryResult{
 		Facts:     facts,
 		NextToken: nextToken,
@@ -515,10 +515,10 @@ func (s *DynamoDBStore) GetSnapshotAtTime(ctx context.Context, namespace string,
 		EndTime:       &at,          // Up to the specified time
 		SortAscending: false,        // Get newest first for each field
 	}
-	
+
 	var result *QueryResult
 	var err error
-	
+
 	if namespace == "" {
 		// Query all facts if no namespace specified
 		result, err = s.QueryByTimeRange(ctx, queryOpts)
@@ -526,23 +526,23 @@ func (s *DynamoDBStore) GetSnapshotAtTime(ctx context.Context, namespace string,
 		// Query only the specified namespace
 		result, err = s.QueryByNamespace(ctx, namespace, queryOpts)
 	}
-	
+
 	if err != nil {
 		return nil, &StoreError{
 			Operation: "GetSnapshotAtTime",
 			Err:       fmt.Errorf("query failed: %w", err),
 		}
 	}
-	
+
 	// Build snapshot map - most recent fact for each field
 	snapshot := make(map[string]Fact)
 	for _, fact := range result.Facts {
 		// We identify fields by namespace#fieldName
 		key := fmt.Sprintf("%s#%s", fact.Namespace, fact.FieldName)
-		
+
 		// Check if we already have this field in our snapshot
 		existingFact, exists := snapshot[key]
-		
+
 		// If we don't have it yet, or this version is newer, use this one
 		if !exists || fact.Timestamp.After(existingFact.Timestamp) {
 			// Skip deleted items
@@ -554,60 +554,60 @@ func (s *DynamoDBStore) GetSnapshotAtTime(ctx context.Context, namespace string,
 			}
 		}
 	}
-	
+
 	return snapshot, nil
 }
 
 // unmarshalFactItems converts DynamoDB items to Fact structs
 func unmarshalFactItems(items []map[string]types.AttributeValue) ([]Fact, error) {
 	facts := make([]Fact, 0, len(items))
-	
+
 	for _, item := range items {
 		fact := Fact{}
-		
+
 		// Extract standard fields
 		if v, ok := item["ID"]; ok {
 			if sv, ok := v.(*types.AttributeValueMemberS); ok {
 				fact.ID = sv.Value
 			}
 		}
-		
+
 		if v, ok := item["Namespace"]; ok {
 			if sv, ok := v.(*types.AttributeValueMemberS); ok {
 				fact.Namespace = sv.Value
 			}
 		}
-		
+
 		if v, ok := item["FieldName"]; ok {
 			if sv, ok := v.(*types.AttributeValueMemberS); ok {
 				fact.FieldName = sv.Value
 			}
 		}
-		
+
 		if v, ok := item["DataType"]; ok {
 			if sv, ok := v.(*types.AttributeValueMemberS); ok {
 				fact.DataType = DataType(sv.Value)
 			}
 		}
-		
+
 		if v, ok := item["Value"]; ok {
 			if sv, ok := v.(*types.AttributeValueMemberS); ok {
 				fact.Value = sv.Value
 			}
 		}
-		
+
 		if v, ok := item[pkName]; ok {
 			if sv, ok := v.(*types.AttributeValueMemberS); ok {
 				fact.UserID = sv.Value
 			}
 		}
-		
+
 		if v, ok := item[isDeletedName]; ok {
 			if bv, ok := v.(*types.AttributeValueMemberBOOL); ok {
 				fact.IsDeleted = bv.Value
 			}
 		}
-		
+
 		// Extract timestamp from SK
 		if v, ok := item[skName]; ok {
 			if sv, ok := v.(*types.AttributeValueMemberS); ok {
@@ -621,9 +621,9 @@ func unmarshalFactItems(items []map[string]types.AttributeValue) ([]Fact, error)
 				}
 			}
 		}
-		
+
 		facts = append(facts, fact)
 	}
-	
+
 	return facts, nil
 }

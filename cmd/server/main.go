@@ -20,7 +20,7 @@ func main() {
 
 	// Initialize server configuration
 	config := server.DefaultConfig()
-	
+
 	// Override address from flag
 	if addr != "" {
 		config.Addr = addr

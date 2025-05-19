@@ -301,7 +301,7 @@ func testSnapshotOperations(t *testing.T, ctx context.Context, store db.Store) {
 		snapFact1, ok := snapshot[key1]
 		assert.True(t, ok, "snap-field1 should be in snapshot")
 		assert.Equal(t, "updated-value", snapFact1.Value, "Value should be updated-value")
-		
+
 		key2 := "snap-ns#snap-field2"
 		fact2, ok := snapshot[key2]
 		assert.True(t, ok, "snap-field2 should be in snapshot")
@@ -317,7 +317,7 @@ func testSnapshotOperations(t *testing.T, ctx context.Context, store db.Store) {
 		key1 := "snap-ns#snap-field1"
 		_, ok := snapshot[key1]
 		assert.True(t, ok, "snap-field1 should be in snapshot")
-		
+
 		key2 := "snap-ns#snap-field2"
 		_, ok = snapshot[key2]
 		assert.False(t, ok, "snap-field2 should not be in snapshot after deletion")
@@ -325,11 +325,11 @@ func testSnapshotOperations(t *testing.T, ctx context.Context, store db.Store) {
 
 	t.Run("Snapshot across all namespaces", func(t *testing.T) {
 		// Snapshot across all namespaces
-		snapshotTime := baseTime.Add(3 * time.Minute + 30 * time.Second)
+		snapshotTime := baseTime.Add(3*time.Minute + 30*time.Second)
 		snapshot, err := store.GetSnapshotAtTime(ctx, "", snapshotTime)
 		require.NoError(t, err, "GetSnapshotAtTime should succeed")
 		assert.Len(t, snapshot, 3, "Snapshot should have 3 fields across all namespaces")
-		
+
 		// Check for field from other namespace
 		key3 := "other-snap-ns#snap-field3"
 		fact3, ok := snapshot[key3]
@@ -348,18 +348,18 @@ func TestMockStore(t *testing.T) {
 func TestMockStoreExpectations(t *testing.T) {
 	store := db.NewMockStore()
 	ctx := context.Background()
-	
+
 	// Set expectations
 	store.ExpectCall("CreateTable", 1)
 	store.ExpectCall("PutFact", 2)
 	store.ExpectCall("GetFact", 1)
-	
+
 	// Meet expectations
 	_ = store.CreateTable(ctx)
 	_ = store.PutFact(ctx, &db.Fact{ID: "1", Namespace: "test", FieldName: "field"})
 	_ = store.PutFact(ctx, &db.Fact{ID: "2", Namespace: "test", FieldName: "field"})
 	_, _ = store.GetFact(ctx, "1")
-	
+
 	// Verify expectations
 	err := store.VerifyExpectations()
 	assert.NoError(t, err, "Expectations should be met")
@@ -369,19 +369,19 @@ func TestMockStoreExpectations(t *testing.T) {
 func TestMockStoreFailureModes(t *testing.T) {
 	store := db.NewMockStore()
 	ctx := context.Background()
-	
+
 	// Create the table first
 	err := store.CreateTable(ctx)
 	require.NoError(t, err, "CreateTable should succeed")
-	
+
 	// Setup a simulated failure for PutFact
 	expectedError := fmt.Errorf("simulated failure")
 	store.SimulateFailure("PutFact", expectedError)
-	
+
 	// Attempt to put a fact, which should fail
 	err = store.PutFact(ctx, &db.Fact{ID: "test", Namespace: "test", FieldName: "field"})
 	require.Error(t, err, "PutFact should fail")
-	
+
 	// Check that it's our expected error
 	assert.Contains(t, err.Error(), expectedError.Error(), "Error should contain our simulated failure")
 }
@@ -396,12 +396,12 @@ func TestDynamoDBStore(t *testing.T) {
 	if !integrationTestEnabled() {
 		t.Skip("Skipping DynamoDB integration test. Set DYNAMODB_INTEGRATION_TEST=true to run")
 	}
-	
+
 	ctx := context.Background()
-	
+
 	// Set up DynamoDB client (use local or real AWS based on environment)
 	opts := []func(*config.LoadOptions) error{}
-	
+
 	if ep := os.Getenv("DYNAMODB_ENDPOINT_URL"); ep != "" {
 		resolver := aws.EndpointResolverFunc(func(service, region string) (aws.Endpoint, error) {
 			if service == dynamodb.ServiceID {
@@ -411,19 +411,19 @@ func TestDynamoDBStore(t *testing.T) {
 		})
 		opts = append(opts, config.WithEndpointResolver(resolver))
 	}
-	
+
 	cfg, err := config.LoadDefaultConfig(ctx, opts...)
 	require.NoError(t, err, "Loading AWS config should succeed")
-	
+
 	// Create a unique table name for this test run to avoid conflicts
 	tableName := fmt.Sprintf("TestTable%d", time.Now().Unix())
 	userID := "test-user"
-	
+
 	store := db.NewDynamoDBStore(&db.Config{
 		TableName:    tableName,
 		UserID:       userID,
 		DynamoClient: dynamodb.NewFromConfig(cfg),
 	})
-	
+
 	testStore(t, store)
 }

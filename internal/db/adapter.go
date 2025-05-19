@@ -39,12 +39,12 @@ func (a *StoreAdapter) QueryByField(ctx context.Context, namespace, fieldName st
 		EndTime:       &end,
 		SortAscending: true,
 	}
-	
+
 	result, err := a.store.QueryByField(ctx, namespace, fieldName, opts)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return convertToLegacyFacts(result.Facts), nil
 }
 
@@ -55,12 +55,12 @@ func (a *StoreAdapter) QueryByTimeRange(ctx context.Context, start, end time.Tim
 		EndTime:       &end,
 		SortAscending: true,
 	}
-	
+
 	result, err := a.store.QueryByTimeRange(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return convertToLegacyFacts(result.Facts), nil
 }
 
@@ -70,7 +70,7 @@ func (a *StoreAdapter) GetFactByID(ctx context.Context, id string) (*dynamo.Fact
 	if err != nil {
 		return nil, err
 	}
-	
+
 	legacyFact := convertToLegacyFact(*fact)
 	return &legacyFact, nil
 }
@@ -87,19 +87,19 @@ func (a *StoreAdapter) GetSnapshot(ctx context.Context, at time.Time) (map[strin
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Group facts by namespace and field name
 	result := make(map[string]map[string]dynamo.Fact)
-	
+
 	for _, fact := range allNamespaces {
 		ns := fact.Namespace
 		if _, exists := result[ns]; !exists {
 			result[ns] = make(map[string]dynamo.Fact)
 		}
-		
+
 		result[ns][fact.FieldName] = convertToLegacyFact(fact)
 	}
-	
+
 	return result, nil
 }
 
@@ -172,7 +172,7 @@ func (a *LegacyClientAdapter) PutFact(ctx context.Context, fact *Fact) error {
 			Err:       fmt.Errorf("fact cannot be nil"),
 		}
 	}
-	
+
 	// Convert to legacy fact type
 	legacyFact := dynamo.Fact{
 		ID:        fact.ID,
@@ -182,18 +182,18 @@ func (a *LegacyClientAdapter) PutFact(ctx context.Context, fact *Fact) error {
 		DataType:  string(fact.DataType),
 		Value:     fact.Value,
 	}
-	
+
 	return a.client.PutFact(ctx, legacyFact)
 }
 
 func (a *LegacyClientAdapter) GetFact(ctx context.Context, id string) (*Fact, error) {
 	// Legacy client doesn't have a direct GetFact method
 	// We'll need to query for it and find the latest version
-	
+
 	// Use a large time range to find the fact
 	endTime := time.Now().UTC()
 	startTime := time.Unix(0, 0) // Beginning of time
-	
+
 	// Query all facts
 	facts, err := a.client.QueryByTimeRange(ctx, startTime, endTime)
 	if err != nil {
@@ -202,7 +202,7 @@ func (a *LegacyClientAdapter) GetFact(ctx context.Context, id string) (*Fact, er
 			Err:       err,
 		}
 	}
-	
+
 	// Find the most recent fact with the given ID
 	var latestFact *dynamo.Fact
 	for i, f := range facts {
@@ -213,14 +213,14 @@ func (a *LegacyClientAdapter) GetFact(ctx context.Context, id string) (*Fact, er
 			}
 		}
 	}
-	
+
 	if latestFact == nil {
 		return nil, &StoreError{
 			Operation: "GetFact",
 			Err:       fmt.Errorf("fact not found"),
 		}
 	}
-	
+
 	// Convert to our Fact type
 	result := &Fact{
 		ID:        latestFact.ID,
@@ -231,12 +231,12 @@ func (a *LegacyClientAdapter) GetFact(ctx context.Context, id string) (*Fact, er
 		// Note: This is lossy if Value is not a string
 		Value: fmt.Sprintf("%v", latestFact.Value),
 	}
-	
+
 	// Check if this is a "deleted" marker
 	if latestFact.DataType == "deleted" {
 		result.IsDeleted = true
 	}
-	
+
 	return result, nil
 }
 
@@ -249,7 +249,7 @@ func (a *LegacyClientAdapter) DeleteFact(ctx context.Context, id string) error {
 			Err:       err,
 		}
 	}
-	
+
 	// Create a deletion marker in DynamoDB
 	legacyFact := dynamo.Fact{
 		ID:        id,
@@ -259,7 +259,7 @@ func (a *LegacyClientAdapter) DeleteFact(ctx context.Context, id string) error {
 		DataType:  "deleted",
 		Value:     nil,
 	}
-	
+
 	return a.client.PutFact(ctx, legacyFact)
 }
 
@@ -269,12 +269,12 @@ func (a *LegacyClientAdapter) QueryByField(ctx context.Context, namespace, field
 	if opts.StartTime != nil {
 		startTime = *opts.StartTime
 	}
-	
+
 	endTime := time.Now().UTC()
 	if opts.EndTime != nil {
 		endTime = *opts.EndTime
 	}
-	
+
 	// Call the legacy client method
 	facts, err := a.client.QueryByField(ctx, namespace, fieldName, startTime, endTime)
 	if err != nil {
@@ -283,7 +283,7 @@ func (a *LegacyClientAdapter) QueryByField(ctx context.Context, namespace, field
 			Err:       err,
 		}
 	}
-	
+
 	// Convert to our Fact type
 	result := make([]Fact, len(facts))
 	for i, f := range facts {
@@ -297,7 +297,7 @@ func (a *LegacyClientAdapter) QueryByField(ctx context.Context, namespace, field
 			IsDeleted: f.DataType == "deleted",
 		}
 	}
-	
+
 	// Sort if needed
 	if opts.SortAscending {
 		// Facts should already be sorted ascending by the DynamoDB query
@@ -307,7 +307,7 @@ func (a *LegacyClientAdapter) QueryByField(ctx context.Context, namespace, field
 			result[i], result[j] = result[j], result[i]
 		}
 	}
-	
+
 	return &QueryResult{
 		Facts:     result,
 		NextToken: nil, // Legacy client doesn't support pagination
@@ -320,12 +320,12 @@ func (a *LegacyClientAdapter) QueryByTimeRange(ctx context.Context, opts QueryOp
 	if opts.StartTime != nil {
 		startTime = *opts.StartTime
 	}
-	
+
 	endTime := time.Now().UTC()
 	if opts.EndTime != nil {
 		endTime = *opts.EndTime
 	}
-	
+
 	// Call the legacy client method
 	facts, err := a.client.QueryByTimeRange(ctx, startTime, endTime)
 	if err != nil {
@@ -334,7 +334,7 @@ func (a *LegacyClientAdapter) QueryByTimeRange(ctx context.Context, opts QueryOp
 			Err:       err,
 		}
 	}
-	
+
 	// Convert to our Fact type
 	result := make([]Fact, len(facts))
 	for i, f := range facts {
@@ -348,7 +348,7 @@ func (a *LegacyClientAdapter) QueryByTimeRange(ctx context.Context, opts QueryOp
 			IsDeleted: f.DataType == "deleted",
 		}
 	}
-	
+
 	// Sort if needed
 	if opts.SortAscending {
 		// Facts should already be sorted ascending by the DynamoDB query
@@ -358,7 +358,7 @@ func (a *LegacyClientAdapter) QueryByTimeRange(ctx context.Context, opts QueryOp
 			result[i], result[j] = result[j], result[i]
 		}
 	}
-	
+
 	return &QueryResult{
 		Facts:     result,
 		NextToken: nil, // Legacy client doesn't support pagination
@@ -368,7 +368,7 @@ func (a *LegacyClientAdapter) QueryByTimeRange(ctx context.Context, opts QueryOp
 func (a *LegacyClientAdapter) QueryByNamespace(ctx context.Context, namespace string, opts QueryOptions) (*QueryResult, error) {
 	// Legacy client doesn't have this method directly
 	// We'll need to get all facts and filter by namespace
-	
+
 	// First get all facts in the time range
 	result, err := a.QueryByTimeRange(ctx, opts)
 	if err != nil {
@@ -377,7 +377,7 @@ func (a *LegacyClientAdapter) QueryByNamespace(ctx context.Context, namespace st
 			Err:       err,
 		}
 	}
-	
+
 	// Filter by namespace
 	filteredFacts := make([]Fact, 0)
 	for _, fact := range result.Facts {
@@ -385,7 +385,7 @@ func (a *LegacyClientAdapter) QueryByNamespace(ctx context.Context, namespace st
 			filteredFacts = append(filteredFacts, fact)
 		}
 	}
-	
+
 	return &QueryResult{
 		Facts:     filteredFacts,
 		NextToken: nil,
@@ -396,16 +396,16 @@ func (a *LegacyClientAdapter) GetSnapshotAtTime(ctx context.Context, namespace s
 	// Get all facts up to the time "at"
 	startTime := time.Unix(0, 0)
 	endTime := at
-	
+
 	opts := QueryOptions{
 		StartTime:     &startTime,
 		EndTime:       &endTime,
 		SortAscending: false, // Most recent first
 	}
-	
+
 	var result *QueryResult
 	var err error
-	
+
 	if namespace == "" {
 		// Get all facts
 		result, err = a.QueryByTimeRange(ctx, opts)
@@ -413,19 +413,19 @@ func (a *LegacyClientAdapter) GetSnapshotAtTime(ctx context.Context, namespace s
 		// Filter by namespace
 		result, err = a.QueryByNamespace(ctx, namespace, opts)
 	}
-	
+
 	if err != nil {
 		return nil, &StoreError{
 			Operation: "GetSnapshotAtTime",
 			Err:       err,
 		}
 	}
-	
+
 	// Create snapshot map (using namespace#fieldName as key)
 	snapshot := make(map[string]Fact)
 	for _, fact := range result.Facts {
 		key := fmt.Sprintf("%s#%s", fact.Namespace, fact.FieldName)
-		
+
 		// If we haven't seen this field yet or this is a newer version
 		if existing, exists := snapshot[key]; !exists || fact.Timestamp.After(existing.Timestamp) {
 			if !fact.IsDeleted {
@@ -436,7 +436,7 @@ func (a *LegacyClientAdapter) GetSnapshotAtTime(ctx context.Context, namespace s
 			}
 		}
 	}
-	
+
 	return snapshot, nil
 }
 
