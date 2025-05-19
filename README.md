@@ -55,4 +55,10 @@ npm run dev
 ```
 
 The frontend will be available at http://localhost:3000 and proxies API requests to http://localhost:8080.
+
+To set up the backend for local dev:
+
+```bash
+DYNAMODB_TABLE_NAME=NotablyTest DYNAMODB_ENDPOINT_URL="http://localhost:8000" go run cmd/create-table/main.go
+DYNAMODB_TABLE_NAME=NotablyTest DYNAMODB_ENDPOINT_URL="http://localhost:8000" go run cmd/server/main.go
 ```

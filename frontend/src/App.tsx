@@ -133,8 +133,10 @@ function MainApp({ client, onLogout }: MainAppProps) {
     try {
       const res = await client.listTables();
       setTables(res.tables);
-    } catch (err: any) {
-      alert(err.message);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.log(error.message);
+      }
     }
   };
 
@@ -172,8 +174,10 @@ function MainApp({ client, onLogout }: MainAppProps) {
               await client.createTable(newTableName);
               setNewTableName("");
               loadTables();
-            } catch (err: any) {
-              alert(err.message);
+            } catch (error: unknown) {
+              if (error instanceof Error) {
+                console.log(error.message);
+              }
             }
           }}
         >
@@ -202,8 +206,10 @@ function TableView({ table, client, onBack }: TableViewProps) {
     try {
       const res = await client.listRows(table);
       setRows(res.rows);
-    } catch (err: any) {
-      alert(err.message);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.log(error.message);
+      }
     }
   };
 
@@ -216,8 +222,10 @@ function TableView({ table, client, onBack }: TableViewProps) {
       const atIso = snapshotAt ? new Date(snapshotAt).toISOString() : undefined;
       const res = await client.snapshot(table, atIso);
       setRows(res.rows);
-    } catch (err: any) {
-      alert(err.message);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.log(error.message);
+      }
     }
   };
 
@@ -227,8 +235,10 @@ function TableView({ table, client, onBack }: TableViewProps) {
       const endIso = new Date(historyRange.end).toISOString();
       const e = await client.history(table, startIso, endIso);
       setHistoryEvents(e.events);
-    } catch (err: any) {
-      alert(err.message);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.log(error.message);
+      }
     }
   };
 
@@ -239,8 +249,10 @@ function TableView({ table, client, onBack }: TableViewProps) {
       setNewId("");
       setNewValues("{}");
       loadRows();
-    } catch (err: any) {
-      alert(err.message);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.log(error.message);
+      }
     }
   };
 
@@ -252,8 +264,10 @@ function TableView({ table, client, onBack }: TableViewProps) {
       const vals = JSON.parse(input);
       await client.updateRow(table, id, vals);
       loadRows();
-    } catch (err: any) {
-      alert(err.message);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.log(error.message);
+      }
     }
   };
 
@@ -262,8 +276,10 @@ function TableView({ table, client, onBack }: TableViewProps) {
     try {
       await client.deleteRow(table, id);
       loadRows();
-    } catch (err: any) {
-      alert(err.message);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.log(error.message);
+      }
     }
   };
 
