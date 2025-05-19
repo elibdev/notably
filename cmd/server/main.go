@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -19,18 +20,14 @@ import (
 )
 
 func main() {
-	var (
-		tableName string
-		userID    string
-		addr      string
-	)
-	flag.StringVar(&tableName, "table", "", "DynamoDB table name (required)")
-	flag.StringVar(&userID, "user", "", "User ID (required)")
+	var addr string
 	flag.StringVar(&addr, "addr", ":8080", "HTTP listen address")
 	flag.Parse()
-	if tableName == "" || userID == "" {
-		flag.Usage()
-		log.Fatal("table and user flags are required")
+
+	// Underlying DynamoDB table name must be set via environment
+	tableName := os.Getenv("DYNAMODB_TABLE_NAME")
+	if tableName == "" {
+		log.Fatal("environment variable DYNAMODB_TABLE_NAME is required")
 	}
 
 	ctx := context.Background()
@@ -49,62 +46,76 @@ func main() {
 		log.Fatalf("loading AWS config: %v", err)
 	}
 
-	legacyClient := dynamo.NewClient(cfg, tableName, userID)
-	store := db.NewStoreAdapter(db.CreateStoreFromClient(legacyClient))
-
-	if err := store.CreateTable(ctx); err != nil {
+	// Ensure the underlying DynamoDB table exists (no user context)
+	baseClient := dynamo.NewClient(cfg, tableName, "")
+	baseStore := db.NewStoreAdapter(db.CreateStoreFromClient(baseClient))
+	if err := baseStore.CreateTable(ctx); err != nil {
 		log.Fatalf("creating table: %v", err)
 	}
 
+	// Per-request factory for a StoreAdapter bound to the current user
+	getStore := func(user string) *db.StoreAdapter {
+		client := dynamo.NewClient(cfg, tableName, user)
+		return db.NewStoreAdapter(db.CreateStoreFromClient(client))
+	}
+
 	mux := http.NewServeMux()
-	mux.HandleFunc("/facts", func(w http.ResponseWriter, r *http.Request) {
+
+	// CRUD for user tables
+	mux.HandleFunc("/tables", func(w http.ResponseWriter, r *http.Request) {
+		user, err := requireUser(r)
+		if err != nil {
+			writeError(w, http.StatusUnauthorized, err.Error())
+			return
+		}
+		store := getStore(user)
 		switch r.Method {
-		case http.MethodGet:
-			handleQueryByTimeRange(ctx, store, w, r)
 		case http.MethodPost:
-			handleAddFact(ctx, store, w, r)
-		default:
-			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
-		}
-	})
-	mux.HandleFunc("/facts/", func(w http.ResponseWriter, r *http.Request) {
-		id := strings.TrimPrefix(r.URL.Path, "/facts/")
-		if id == "" {
-			writeError(w, http.StatusNotFound, "missing fact id")
-			return
-		}
-		switch r.Method {
+			createTable(w, r, store)
 		case http.MethodGet:
-			handleGetFact(ctx, store, w, r, id)
-		case http.MethodDelete:
-			handleDeleteFact(ctx, store, w, r, id)
+			listTables(w, r, store)
 		default:
 			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		}
 	})
-	mux.HandleFunc("/namespaces/", func(w http.ResponseWriter, r *http.Request) {
-		segments := strings.Split(strings.TrimPrefix(r.URL.Path, "/namespaces/"), "/")
-		if len(segments) < 2 {
-			writeError(w, http.StatusNotFound, "invalid namespace path")
+
+	// Operations on a specific table: rows, snapshot, history
+	mux.HandleFunc("/tables/", func(w http.ResponseWriter, r *http.Request) {
+		user, err := requireUser(r)
+		if err != nil {
+			writeError(w, http.StatusUnauthorized, err.Error())
 			return
 		}
-		namespace := segments[0]
-		switch {
-		case len(segments) >= 4 && segments[1] == "fields" && segments[3] == "facts":
-			fieldName := segments[2]
-			handleQueryByField(ctx, store, w, r, namespace, fieldName)
-		case len(segments) == 2 && segments[1] == "facts":
-			handleQueryByNamespace(ctx, store, w, r, namespace)
+		store := getStore(user)
+		// Trim prefix and split path: /tables/{table}[/{action}[/{id}]]
+		path := strings.TrimPrefix(r.URL.Path, "/tables/")
+		path = strings.TrimPrefix(path, "/")
+		parts := strings.Split(path, "/")
+		table := parts[0]
+		if table == "" {
+			writeError(w, http.StatusNotFound, "missing table name")
+			return
+		}
+		// Delegate by action
+		if len(parts) == 1 {
+			writeError(w, http.StatusNotFound, "invalid table path")
+			return
+		}
+		action := parts[1]
+		subID := ""
+		if len(parts) >= 3 {
+			subID = parts[2]
+		}
+		switch action {
+		case "rows":
+			handleRows(r.Context(), w, r, store, user, table, subID)
+		case "snapshot":
+			handleTableSnapshot(r.Context(), w, r, store, user, table)
+		case "history":
+			handleTableHistory(r.Context(), w, r, store, user, table)
 		default:
-			writeError(w, http.StatusNotFound, "invalid namespace path")
+			writeError(w, http.StatusNotFound, "invalid table action")
 		}
-	})
-	mux.HandleFunc("/snapshots", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
-			return
-		}
-		handleGetSnapshot(ctx, store, w, r)
 	})
 
 	log.Printf("listening on %s", addr)
@@ -113,19 +124,18 @@ func main() {
 	}
 }
 
-// FactResponse represents a fact in JSON responses.
-type FactResponse struct {
-	ID        string      `json:"id"`
-	Timestamp time.Time   `json:"timestamp"`
-	Namespace string      `json:"namespace"`
-	FieldName string      `json:"fieldName"`
-	DataType  string      `json:"dataType"`
-	Value     interface{} `json:"value"`
+// requireUser extracts the X-User-ID header or returns an error
+func requireUser(r *http.Request) (string, error) {
+	user := r.Header.Get("X-User-ID")
+	if user == "" {
+		return "", fmt.Errorf("missing X-User-ID header")
+	}
+	return user, nil
 }
 
-// QueryResponse is the JSON structure for list of facts.
-type QueryResponse struct {
-	Facts []FactResponse `json:"facts"`
+// newID generates a simple unique ID based on the current time
+func newID() string {
+	return fmt.Sprintf("%d", time.Now().UTC().UnixNano())
 }
 
 // writeJSON writes v as JSON with the given status code.
@@ -140,146 +150,247 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]string{"error": msg})
 }
 
-// parseTime parses an RFC3339 timestamp from query parameter.
+// parseTime parses an RFC3339 timestamp.
 func parseTime(val string) (time.Time, error) {
 	return time.Parse(time.RFC3339, val)
 }
 
-func toFactResponse(f dynamo.Fact) FactResponse {
-	return FactResponse{
-		ID:        f.ID,
-		Timestamp: f.Timestamp,
-		Namespace: f.Namespace,
-		FieldName: f.FieldName,
-		DataType:  f.DataType,
-		Value:     f.Value,
-	}
+// TableInfo represents metadata for a user table.
+type TableInfo struct {
+	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
-func handleAddFact(ctx context.Context, store *db.StoreAdapter, w http.ResponseWriter, r *http.Request) {
-	var fact dynamo.Fact
-	if err := json.NewDecoder(r.Body).Decode(&fact); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON body")
+// RowData represents a row snapshot for a table.
+type RowData struct {
+	ID        string                 `json:"id"`
+	Timestamp time.Time              `json:"timestamp"`
+	Values    map[string]interface{} `json:"values"`
+}
+
+// RowEvent represents a history event for a row.
+type RowEvent struct {
+	ID        string                 `json:"id"`
+	Timestamp time.Time              `json:"timestamp"`
+	Values    map[string]interface{} `json:"values"`
+}
+
+// createTable records a new table under the user's namespace.
+func createTable(w http.ResponseWriter, r *http.Request, store *db.StoreAdapter) {
+	var req struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Name == "" {
+		writeError(w, http.StatusBadRequest, "invalid JSON or missing table name")
 		return
 	}
-	if err := store.PutFact(ctx, fact); err != nil {
+	fact := dynamo.Fact{
+		ID:        newID(),
+		Timestamp: time.Now().UTC(),
+		Namespace: r.Header.Get("X-User-ID"),
+		FieldName: req.Name,
+		DataType:  "string",
+		Value:     "",
+	}
+	if err := store.PutFact(r.Context(), fact); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusCreated, toFactResponse(fact))
+	writeJSON(w, http.StatusCreated, TableInfo{Name: req.Name, CreatedAt: fact.Timestamp})
 }
 
-func handleGetFact(ctx context.Context, store *db.StoreAdapter, w http.ResponseWriter, r *http.Request, id string) {
-	fact, err := store.GetFactByID(ctx, id)
-	if err != nil {
-		writeError(w, http.StatusNotFound, err.Error())
-		return
-	}
-	writeJSON(w, http.StatusOK, toFactResponse(*fact))
-}
-
-func handleDeleteFact(ctx context.Context, store *db.StoreAdapter, w http.ResponseWriter, r *http.Request, id string) {
-	if err := store.DeleteFactByID(ctx, id); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
-}
-
-func handleQueryByField(ctx context.Context, store *db.StoreAdapter, w http.ResponseWriter, r *http.Request, namespace, fieldName string) {
-	q := r.URL.Query()
-	start, err := parseTime(q.Get("start"))
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid start time")
-		return
-	}
-	end, err := parseTime(q.Get("end"))
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid end time")
-		return
-	}
-	facts, err := store.QueryByField(ctx, namespace, fieldName, start, end)
+// listTables returns the list of tables for the user.
+func listTables(w http.ResponseWriter, r *http.Request, store *db.StoreAdapter) {
+	user := r.Header.Get("X-User-ID")
+	snap, err := store.GetSnapshot(r.Context(), time.Now().UTC())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	resp := QueryResponse{Facts: make([]FactResponse, len(facts))}
-	for i, f := range facts {
-		resp.Facts[i] = toFactResponse(f)
-	}
-	writeJSON(w, http.StatusOK, resp)
-}
-
-func handleQueryByNamespace(ctx context.Context, store *db.StoreAdapter, w http.ResponseWriter, r *http.Request, namespace string) {
-	q := r.URL.Query()
-	start, err := parseTime(q.Get("start"))
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid start time")
-		return
-	}
-	end, err := parseTime(q.Get("end"))
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid end time")
-		return
-	}
-	facts, err := store.QueryByTimeRange(ctx, start, end)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	filtered := make([]FactResponse, 0, len(facts))
-	for _, f := range facts {
-		if f.Namespace == namespace {
-			filtered = append(filtered, toFactResponse(f))
+	tbls := []TableInfo{}
+	if entries, ok := snap[user]; ok {
+		for name, fact := range entries {
+			tbls = append(tbls, TableInfo{Name: name, CreatedAt: fact.Timestamp})
 		}
 	}
-	writeJSON(w, http.StatusOK, QueryResponse{Facts: filtered})
+	writeJSON(w, http.StatusOK, map[string]interface{}{"tables": tbls})
 }
 
-func handleQueryByTimeRange(ctx context.Context, store *db.StoreAdapter, w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
-	start, err := parseTime(q.Get("start"))
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid start time")
-		return
+// handleRows handles CRUD operations on rows within a table.
+func handleRows(ctx context.Context, w http.ResponseWriter, r *http.Request, store *db.StoreAdapter, user, table, rowID string) {
+	switch r.Method {
+	case http.MethodPost:
+		// create a new row version
+		var req struct {
+			ID     string                 `json:"id"`
+			Values map[string]interface{} `json:"values"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ID == "" {
+			writeError(w, http.StatusBadRequest, "invalid JSON or missing row id")
+			return
+		}
+		fact := dynamo.Fact{
+			ID:        newID(),
+			Timestamp: time.Now().UTC(),
+			Namespace: fmt.Sprintf("%s/%s", user, table),
+			FieldName: req.ID,
+			DataType:  "json",
+			Value:     req.Values,
+		}
+		if err := store.PutFact(ctx, fact); err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusCreated, RowData{ID: req.ID, Timestamp: fact.Timestamp, Values: req.Values})
+
+	case http.MethodGet:
+		// list or get a single row snapshot
+		if rowID == "" {
+			// list current rows
+			snap, err := store.GetSnapshot(ctx, time.Now().UTC())
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+			key := fmt.Sprintf("%s/%s", user, table)
+			rows := []RowData{}
+			if entries, ok := snap[key]; ok {
+				for id, fact := range entries {
+					if fact.DataType == "json" {
+						vals, _ := fact.Value.(map[string]interface{})
+						rows = append(rows, RowData{ID: id, Timestamp: fact.Timestamp, Values: vals})
+					}
+				}
+			}
+			writeJSON(w, http.StatusOK, map[string]interface{}{"rows": rows})
+		} else {
+			// get single row
+			snap, err := store.GetSnapshot(ctx, time.Now().UTC())
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+			key := fmt.Sprintf("%s/%s", user, table)
+			if entries, ok := snap[key]; ok {
+				if fact, ok := entries[rowID]; ok && fact.DataType == "json" {
+					vals, _ := fact.Value.(map[string]interface{})
+					writeJSON(w, http.StatusOK, RowData{ID: rowID, Timestamp: fact.Timestamp, Values: vals})
+					return
+				}
+			}
+			writeError(w, http.StatusNotFound, "row not found")
+		}
+
+	case http.MethodPut:
+		// update row (new version)
+		if rowID == "" {
+			writeError(w, http.StatusBadRequest, "missing row id")
+			return
+		}
+		var req struct {
+			Values map[string]interface{} `json:"values"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid JSON")
+			return
+		}
+		fact := dynamo.Fact{
+			ID:        newID(),
+			Timestamp: time.Now().UTC(),
+			Namespace: fmt.Sprintf("%s/%s", user, table),
+			FieldName: rowID,
+			DataType:  "json",
+			Value:     req.Values,
+		}
+		if err := store.PutFact(ctx, fact); err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, RowData{ID: rowID, Timestamp: fact.Timestamp, Values: req.Values})
+
+	case http.MethodDelete:
+		// delete row (tombstone)
+		if rowID == "" {
+			writeError(w, http.StatusBadRequest, "missing row id")
+			return
+		}
+		fact := dynamo.Fact{
+			ID:        newID(),
+			Timestamp: time.Now().UTC(),
+			Namespace: fmt.Sprintf("%s/%s", user, table),
+			FieldName: rowID,
+			DataType:  "json",
+			Value:     nil,
+		}
+		if err := store.PutFact(ctx, fact); err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+
+	default:
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 	}
-	end, err := parseTime(q.Get("end"))
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid end time")
-		return
-	}
-	facts, err := store.QueryByTimeRange(ctx, start, end)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	resp := QueryResponse{Facts: make([]FactResponse, len(facts))}
-	for i, f := range facts {
-		resp.Facts[i] = toFactResponse(f)
-	}
-	writeJSON(w, http.StatusOK, resp)
 }
 
-func handleGetSnapshot(ctx context.Context, store *db.StoreAdapter, w http.ResponseWriter, r *http.Request) {
+// handleTableSnapshot returns the state of a table at a given time.
+func handleTableSnapshot(ctx context.Context, w http.ResponseWriter, r *http.Request, store *db.StoreAdapter, user, table string) {
 	q := r.URL.Query()
 	atParam := q.Get("at")
-	at, err := parseTime(atParam)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid at time")
-		return
+	var at time.Time
+	var err error
+	if atParam == "" {
+		at = time.Now().UTC()
+	} else {
+		at, err = parseTime(atParam)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid at time")
+			return
+		}
 	}
 	snap, err := store.GetSnapshot(ctx, at)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	result := make(map[string]map[string]FactResponse, len(snap))
-	for ns, fields := range snap {
-		grp := make(map[string]FactResponse, len(fields))
-		for name, f := range fields {
-			grp[name] = toFactResponse(f)
+	key := fmt.Sprintf("%s/%s", user, table)
+	rows := []RowData{}
+	if entries, ok := snap[key]; ok {
+		for id, fact := range entries {
+			if fact.DataType == "json" {
+				vals, _ := fact.Value.(map[string]interface{})
+				rows = append(rows, RowData{ID: id, Timestamp: fact.Timestamp, Values: vals})
+			}
 		}
-		result[ns] = grp
 	}
-	writeJSON(w, http.StatusOK, result)
+	writeJSON(w, http.StatusOK, map[string]interface{}{"rows": rows})
+}
+
+// handleTableHistory returns all row events for a table in a time range.
+func handleTableHistory(ctx context.Context, w http.ResponseWriter, r *http.Request, store *db.StoreAdapter, user, table string) {
+	q := r.URL.Query()
+	start, err := parseTime(q.Get("start"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid start time")
+		return
+	}
+	end, err := parseTime(q.Get("end"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid end time")
+		return
+	}
+	facts, err := store.QueryByTimeRange(ctx, start, end)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	events := []RowEvent{}
+	prefix := fmt.Sprintf("%s/%s", user, table)
+	for _, f := range facts {
+		if f.Namespace == prefix && f.DataType == "json" {
+			vals, _ := f.Value.(map[string]interface{})
+			events = append(events, RowEvent{ID: f.FieldName, Timestamp: f.Timestamp, Values: vals})
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{"events": events})
 }

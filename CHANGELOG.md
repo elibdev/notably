@@ -3,6 +3,66 @@
 
 # 2025-05-18
 
+# Change API to Per-User Tables Abstraction
+
+I’ve overhauled the HTTP server so that it now exposes a true “per-user table” interface—no more “facts” endpoints, no more table/user flags at startup. All data lives in one DynamoDB table (name taken from
+$DYNAMODB_TABLE_NAME), and each request is scoped to the user identified by the X-User-ID header.
+
+### What changed
+
+    * **Removed** the `--table` and `--user` flags.
+      The DynamoDB table name is now read from `DYNAMODB_TABLE_NAME`; the user is picked up on each request from the `X-User-ID` header.
+    * **Startup** still ensures the underlying DynamoDB table exists (using an empty user context).
+    * **New REST endpoints** under `/tables`:
+
+      ┌────────┬───────────────────────────────────────┬──────────────────────────────────────────────────────────┐
+      │ Method │ Path                                  │ Description                                              │
+      ├────────┼───────────────────────────────────────┼──────────────────────────────────────────────────────────┤
+      │ POST   │ /tables                               │ Create a new table for the user                          │
+      ├────────┼───────────────────────────────────────┼──────────────────────────────────────────────────────────┤
+      │ GET    │ /tables                               │ List all tables for the user                             │
+      ├────────┼───────────────────────────────────────┼──────────────────────────────────────────────────────────┤
+      │ POST   │ /tables/{table}/rows                  │ Insert (or upsert) a row in the named table              │
+      ├────────┼───────────────────────────────────────┼──────────────────────────────────────────────────────────┤
+      │ GET    │ /tables/{table}/rows                  │ List current rows of the table                           │
+      ├────────┼───────────────────────────────────────┼──────────────────────────────────────────────────────────┤
+      │ GET    │ /tables/{table}/rows/{rowID}          │ Get the latest version of a single row                   │
+      ├────────┼───────────────────────────────────────┼──────────────────────────────────────────────────────────┤
+      │ PUT    │ /tables/{table}/rows/{rowID}          │ Update (append a new version of) a single row            │
+      ├────────┼───────────────────────────────────────┼──────────────────────────────────────────────────────────┤
+      │ DELETE │ /tables/{table}/rows/{rowID}          │ “Tombstone” a row (marks it deleted at the current time) │
+      ├────────┼───────────────────────────────────────┼──────────────────────────────────────────────────────────┤
+      │ GET    │ /tables/{table}/snapshot?at=…         │ Snapshot of the table at a given RFC3339 timestamp (at)  │
+      ├────────┼───────────────────────────────────────┼──────────────────────────────────────────────────────────┤
+      │ GET    │ /tables/{table}/history?start=…&end=… │ Full row-event history in a time range                   │
+      └────────┴───────────────────────────────────────┴──────────────────────────────────────────────────────────┘
+    * **Data model**:
+
+
+        * Table-creation events are recorded as “facts” under the user’s namespace.
+
+        * Row events live under namespace `"{user}/{table}"` with one JSON-typed fact per row-version.
+    * **Versioning & history**:
+
+
+        * Every insert/update/delete is a new fact (with a timestamped ID).
+
+        * The snapshot endpoint replays up-to-time events.
+
+        * The history endpoint streams all events in the specified range.
+
+You can review the full implementation in cmd/server/main.go.
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Next steps (as a user of the API):
+
+    export DYNAMODB_TABLE_NAME=NotablyFacts
+    # (optional) export DYNAMODB_ENDPOINT_URL=http://localhost:8000
+    go run cmd/server/main.go --addr :8080
+
+Then talk to it with your HTTP client, remembering to set X-User-ID: yourUserID on each request.
+
 # Scaffold time based database idea
 
 I’ve scaffolded a minimal Go‐based “notably” DynamoDB fact store (module path github.com/elibdev/notably) exactly as laid out in the README:
@@ -104,4 +164,3 @@ File: README.md
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 Everything is go-fmt’ed and compiles cleanly. Let me know if you’d like any tweaks!
-
