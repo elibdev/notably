@@ -411,16 +411,19 @@ func (s *MockStore) GetSnapshotAtTime(ctx context.Context, namespace string, at 
 		return relevantFacts[i].Timestamp.After(relevantFacts[j].Timestamp)
 	})
 	
-	// Build snapshot with latest version of each field
-	snapshot := make(map[string]Fact)
+	// Group facts by field key
+	fieldFactMap := make(map[string][]Fact)
 	for _, fact := range relevantFacts {
 		key := fmt.Sprintf("%s#%s", fact.Namespace, fact.FieldName)
-		
-		// If we haven't seen this field yet or this is a newer version
-		if _, exists := snapshot[key]; !exists {
-			if !fact.IsDeleted {
-				snapshot[key] = fact
-			}
+		fieldFactMap[key] = append(fieldFactMap[key], fact)
+	}
+	
+	// Build snapshot with latest version of each field
+	snapshot := make(map[string]Fact)
+	for key, facts := range fieldFactMap {
+		// Facts are already sorted newest first
+		if len(facts) > 0 && !facts[0].IsDeleted {
+			snapshot[key] = facts[0]
 		}
 	}
 	

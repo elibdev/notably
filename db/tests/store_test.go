@@ -92,9 +92,10 @@ func testCRUDOperations(t *testing.T, ctx context.Context, store db.Store) {
 	require.NoError(t, err, "DeleteFact should succeed")
 
 	// Verify deletion
+	endTime := now.Add(time.Hour)
 	result, err := store.QueryByField(ctx, testFact.Namespace, testFact.FieldName, db.QueryOptions{
 		StartTime:     &now,
-		EndTime:       &time.Time{Add: now, Duration: time.Hour},
+		EndTime:       &endTime,
 		SortAscending: false,
 	})
 	require.NoError(t, err, "Query after delete should succeed")
@@ -297,9 +298,9 @@ func testSnapshotOperations(t *testing.T, ctx context.Context, store db.Store) {
 		require.NoError(t, err, "GetSnapshotAtTime should succeed")
 		assert.Len(t, snapshot, 2, "Snapshot should have 2 fields")
 		key1 := "snap-ns#snap-field1"
-		fact1, ok := snapshot[key1]
+		snapFact1, ok := snapshot[key1]
 		assert.True(t, ok, "snap-field1 should be in snapshot")
-		assert.Equal(t, "updated-value", fact1.Value, "Value should be updated-value")
+		assert.Equal(t, "updated-value", snapFact1.Value, "Value should be updated-value")
 		
 		key2 := "snap-ns#snap-field2"
 		fact2, ok := snapshot[key2]
@@ -314,7 +315,7 @@ func testSnapshotOperations(t *testing.T, ctx context.Context, store db.Store) {
 		require.NoError(t, err, "GetSnapshotAtTime should succeed")
 		assert.Len(t, snapshot, 1, "Snapshot should have 1 field")
 		key1 := "snap-ns#snap-field1"
-		fact1, ok := snapshot[key1]
+		_, ok := snapshot[key1]
 		assert.True(t, ok, "snap-field1 should be in snapshot")
 		
 		key2 := "snap-ns#snap-field2"
