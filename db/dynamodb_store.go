@@ -266,28 +266,33 @@ func (s *DynamoDBStore) QueryByField(ctx context.Context, namespace, fieldName s
 	// Create field key
 	fk := fmt.Sprintf("%s#%s#%s", s.userID, namespace, fieldName)
 
-	// Build query params
-	queryInput := &dynamodb.QueryInput{
-		TableName:              aws.String(s.tableName),
-		IndexName:              aws.String(defaultGSIName),
-		KeyConditionExpression: aws.String(fmt.Sprintf("%s = :fk", fieldKeyName)),
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":fk": &types.AttributeValueMemberS{Value: fk},
-		},
-		ScanIndexForward: aws.Bool(opts.SortAscending),
+	// We need to ensure we always have both a hash key and sort key condition
+	startTime := time.Unix(0, 0) // Beginning of time
+	if opts.StartTime != nil {
+		startTime = *opts.StartTime
 	}
 
-	// Apply time range if provided
-	if opts.StartTime != nil && opts.EndTime != nil {
-		skStart := fmt.Sprintf("%s#", opts.StartTime.Format(time.RFC3339Nano))
-		skEnd := fmt.Sprintf("%s#", opts.EndTime.Format(time.RFC3339Nano))
+	endTime := time.Now().UTC() // Current time
+	if opts.EndTime != nil {
+		endTime = *opts.EndTime
+	}
 
-		queryInput.KeyConditionExpression = aws.String(
+	skStart := fmt.Sprintf("%s#", startTime.Format(time.RFC3339Nano))
+	skEnd := fmt.Sprintf("%s#", endTime.Format(time.RFC3339Nano))
+
+	// Always include both hash and range key conditions for the GSI
+	queryInput := &dynamodb.QueryInput{
+		TableName: aws.String(s.tableName),
+		IndexName: aws.String(defaultGSIName),
+		KeyConditionExpression: aws.String(
 			fmt.Sprintf("%s = :fk AND %s BETWEEN :start AND :end", fieldKeyName, skName),
-		)
-
-		queryInput.ExpressionAttributeValues[":start"] = &types.AttributeValueMemberS{Value: skStart}
-		queryInput.ExpressionAttributeValues[":end"] = &types.AttributeValueMemberS{Value: skEnd}
+		),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":fk":    &types.AttributeValueMemberS{Value: fk},
+			":start": &types.AttributeValueMemberS{Value: skStart},
+			":end":   &types.AttributeValueMemberS{Value: skEnd},
+		},
+		ScanIndexForward: aws.Bool(opts.SortAscending),
 	}
 
 	// Apply limit if provided
@@ -432,29 +437,34 @@ func (s *DynamoDBStore) QueryByTimeRange(ctx context.Context, opts QueryOptions)
 
 // QueryByNamespace implements Store.QueryByNamespace
 func (s *DynamoDBStore) QueryByNamespace(ctx context.Context, namespace string, opts QueryOptions) (*QueryResult, error) {
-	// Build query params for full scan with filter
-	queryInput := &dynamodb.QueryInput{
-		TableName:              aws.String(s.tableName),
-		KeyConditionExpression: aws.String(fmt.Sprintf("%s = :uid", pkName)),
-		FilterExpression:       aws.String("Namespace = :ns"),
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":uid": &types.AttributeValueMemberS{Value: s.userID},
-			":ns":  &types.AttributeValueMemberS{Value: namespace},
-		},
-		ScanIndexForward: aws.Bool(opts.SortAscending),
+	// We need to ensure we always have both a hash key and sort key condition
+	startTime := time.Unix(0, 0) // Beginning of time
+	if opts.StartTime != nil {
+		startTime = *opts.StartTime
 	}
 
-	// Apply time range if provided
-	if opts.StartTime != nil && opts.EndTime != nil {
-		skStart := fmt.Sprintf("%s#", opts.StartTime.Format(time.RFC3339Nano))
-		skEnd := fmt.Sprintf("%s#", opts.EndTime.Format(time.RFC3339Nano))
+	endTime := time.Now().UTC() // Current time
+	if opts.EndTime != nil {
+		endTime = *opts.EndTime
+	}
 
-		queryInput.KeyConditionExpression = aws.String(
+	skStart := fmt.Sprintf("%s#", startTime.Format(time.RFC3339Nano))
+	skEnd := fmt.Sprintf("%s#", endTime.Format(time.RFC3339Nano))
+
+	// Always include both hash and range key conditions
+	queryInput := &dynamodb.QueryInput{
+		TableName: aws.String(s.tableName),
+		KeyConditionExpression: aws.String(
 			fmt.Sprintf("%s = :uid AND %s BETWEEN :start AND :end", pkName, skName),
-		)
-
-		queryInput.ExpressionAttributeValues[":start"] = &types.AttributeValueMemberS{Value: skStart}
-		queryInput.ExpressionAttributeValues[":end"] = &types.AttributeValueMemberS{Value: skEnd}
+		),
+		FilterExpression: aws.String("Namespace = :ns"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":uid":   &types.AttributeValueMemberS{Value: s.userID},
+			":ns":    &types.AttributeValueMemberS{Value: namespace},
+			":start": &types.AttributeValueMemberS{Value: skStart},
+			":end":   &types.AttributeValueMemberS{Value: skEnd},
+		},
+		ScanIndexForward: aws.Bool(opts.SortAscending),
 	}
 
 	// Apply limit if provided

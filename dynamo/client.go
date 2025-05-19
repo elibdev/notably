@@ -108,6 +108,14 @@ func (c *Client) PutFact(ctx context.Context, fact Fact) error {
 
 // QueryByField returns all facts in a namespace/fieldName for the user in the time range [start, end].
 func (c *Client) QueryByField(ctx context.Context, namespace, fieldName string, start, end time.Time) ([]Fact, error) {
+	// Ensure start and end times are valid
+	if start.IsZero() {
+		start = time.Unix(0, 0) // Use Unix epoch as default start
+	}
+	if end.IsZero() {
+		end = time.Now().UTC() // Use current time as default end
+	}
+
 	fk := fmt.Sprintf("%s#%s#%s", c.userID, namespace, fieldName)
 	skStart := fmt.Sprintf("%s#", start.Format(time.RFC3339Nano))
 	skEnd := fmt.Sprintf("%s#", end.Format(time.RFC3339Nano))
@@ -129,6 +137,14 @@ func (c *Client) QueryByField(ctx context.Context, namespace, fieldName string, 
 
 // QueryByTimeRange returns all facts for the user in the time range [start, end].
 func (c *Client) QueryByTimeRange(ctx context.Context, start, end time.Time) ([]Fact, error) {
+	// Ensure start and end times are valid
+	if start.IsZero() {
+		start = time.Unix(0, 0) // Use Unix epoch as default start
+	}
+	if end.IsZero() {
+		end = time.Now().UTC() // Use current time as default end
+	}
+
 	skStart := fmt.Sprintf("%s#", start.Format(time.RFC3339Nano))
 	skEnd := fmt.Sprintf("%s#", end.Format(time.RFC3339Nano))
 	out, err := c.db.Query(ctx, &dynamodb.QueryInput{

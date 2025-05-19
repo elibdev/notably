@@ -180,9 +180,9 @@ func (s *Server) getStoreForUser(ctx context.Context, userID string) (*db.StoreA
 		return nil, fmt.Errorf("loading AWS config: %w", err)
 	}
 
-	// Create client and store
-	client := dynamo.NewClient(cfg, s.config.TableName, userID)
-	store := db.NewStoreAdapter(db.CreateStoreFromClient(client))
+	// Create store using DynamoDBStore directly instead of legacy client adapter
+	dbStore := db.NewDynamoDBStore(cfg, s.config.TableName, userID)
+	store := db.NewStoreAdapter(dbStore)
 
 	return store, nil
 }
