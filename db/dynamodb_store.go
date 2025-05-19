@@ -347,49 +347,32 @@ func (s *DynamoDBStore) QueryByField(ctx context.Context, namespace, fieldName s
 
 // QueryByTimeRange implements Store.QueryByTimeRange
 func (s *DynamoDBStore) QueryByTimeRange(ctx context.Context, opts QueryOptions) (*QueryResult, error) {
-	// Build query params
-	queryInput := &dynamodb.QueryInput{
-		TableName:              aws.String(s.tableName),
-		KeyConditionExpression: aws.String(fmt.Sprintf("%s = :uid", pkName)),
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":uid": &types.AttributeValueMemberS{Value: s.userID},
-		},
-		ScanIndexForward: aws.Bool(opts.SortAscending),
+	// We need to ensure we always have both a hash key and sort key condition
+	startTime := time.Unix(0, 0) // Beginning of time
+	if opts.StartTime != nil {
+		startTime = *opts.StartTime
 	}
 
-	// Make sure we always have a time range condition
-	if opts.StartTime == nil || opts.EndTime == nil {
-		// Default to a wide time range if not provided
-		startTime := time.Unix(0, 0) // Beginning of time
-		if opts.StartTime != nil {
-			startTime = *opts.StartTime
-		}
+	endTime := time.Now().UTC() // Current time
+	if opts.EndTime != nil {
+		endTime = *opts.EndTime
+	}
 
-		endTime := time.Now().UTC() // Current time
-		if opts.EndTime != nil {
-			endTime = *opts.EndTime
-		}
+	skStart := fmt.Sprintf("%s#", startTime.Format(time.RFC3339Nano))
+	skEnd := fmt.Sprintf("%s#", endTime.Format(time.RFC3339Nano))
 
-		skStart := fmt.Sprintf("%s#", startTime.Format(time.RFC3339Nano))
-		skEnd := fmt.Sprintf("%s#", endTime.Format(time.RFC3339Nano))
-
-		queryInput.KeyConditionExpression = aws.String(
+	// Always include both hash and range key conditions
+	queryInput := &dynamodb.QueryInput{
+		TableName: aws.String(s.tableName),
+		KeyConditionExpression: aws.String(
 			fmt.Sprintf("%s = :uid AND %s BETWEEN :start AND :end", pkName, skName),
-		)
-
-		queryInput.ExpressionAttributeValues[":start"] = &types.AttributeValueMemberS{Value: skStart}
-		queryInput.ExpressionAttributeValues[":end"] = &types.AttributeValueMemberS{Value: skEnd}
-	} else {
-		// Original code for when both StartTime and EndTime are provided
-		skStart := fmt.Sprintf("%s#", opts.StartTime.Format(time.RFC3339Nano))
-		skEnd := fmt.Sprintf("%s#", opts.EndTime.Format(time.RFC3339Nano))
-
-		queryInput.KeyConditionExpression = aws.String(
-			fmt.Sprintf("%s = :uid AND %s BETWEEN :start AND :end", pkName, skName),
-		)
-
-		queryInput.ExpressionAttributeValues[":start"] = &types.AttributeValueMemberS{Value: skStart}
-		queryInput.ExpressionAttributeValues[":end"] = &types.AttributeValueMemberS{Value: skEnd}
+		),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":uid":   &types.AttributeValueMemberS{Value: s.userID},
+			":start": &types.AttributeValueMemberS{Value: skStart},
+			":end":   &types.AttributeValueMemberS{Value: skEnd},
+		},
+		ScanIndexForward: aws.Bool(opts.SortAscending),
 	}
 
 	// Apply limit if provided
