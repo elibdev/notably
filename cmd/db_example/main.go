@@ -190,9 +190,10 @@ func exampleUserProfileWorkflow(ctx context.Context, store db.Store) {
 	// 5. Query email history
 	fmt.Println("\nQuerying email history...")
 	
+	endTimeEmail := now.Add(time.Minute * 5)
 	emailHistory, err := store.QueryByField(ctx, "user-profile", "email", db.QueryOptions{
 		StartTime:     &startTime,
-		EndTime:       &now.Add(time.Minute * 5),
+		EndTime:       &endTimeEmail,
 		SortAscending: false, // newest first
 	})
 	
@@ -216,7 +217,7 @@ func exampleUserProfileWorkflow(ctx context.Context, store db.Store) {
 	}
 	
 	fmt.Printf("Profile snapshot at %s:\n", snapshotTime.Format(time.RFC3339))
-	for key, fact := range snapshot {
+	for _, fact := range snapshot {
 		fmt.Printf("  %s = %s\n", fact.FieldName, fact.Value)
 	}
 	
@@ -236,7 +237,7 @@ func exampleUserProfileWorkflow(ctx context.Context, store db.Store) {
 	}
 	
 	fmt.Printf("Profile snapshot after deletion at %s:\n", deletionTime.Format(time.RFC3339))
-	for key, fact := range snapshotAfterDelete {
+	for _, fact := range snapshotAfterDelete {
 		fmt.Printf("  %s = %s\n", fact.FieldName, fact.Value)
 	}
 	
@@ -343,9 +344,10 @@ func exampleInventoryWorkflow(ctx context.Context, store db.Store) {
 	// 3. Query product history
 	fmt.Println("\nQuerying product history...")
 	
+	endTimeProduct := time3.Add(time.Minute)
 	productHistory, err := store.QueryByField(ctx, "inventory", "product-1001", db.QueryOptions{
 		StartTime:     &now,
-		EndTime:       &time3.Add(time.Minute),
+		EndTime:       &endTimeProduct,
 		SortAscending: true, // oldest first
 	})
 	
