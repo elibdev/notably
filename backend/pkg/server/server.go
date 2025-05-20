@@ -621,9 +621,10 @@ func (s *Server) handleCreateRow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Auto-generate ID if not provided
 	if req.ID == "" {
-		writeError(w, http.StatusBadRequest, "Row ID is required")
-		return
+		req.ID = newID()
+		log.Printf("Auto-generated row ID: %s", req.ID)
 	}
 
 	if req.Values == nil {

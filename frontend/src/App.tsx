@@ -6,6 +6,7 @@ import {
   type RowEvent,
   type ColumnDefinition,
 } from "./api";
+import { BrowserRouter, Routes, Route, useParams, useNavigate, Navigate } from "react-router-dom";
 
 // Mantine UI components
 import {
@@ -19,6 +20,7 @@ import {
   Group,
   Anchor,
   Center,
+  Loader,
   TextInput,
   ActionIcon,
   Table,
@@ -92,7 +94,6 @@ function getErrorMessage(error: unknown): string {
 export function App() {
   const [apiKey, setApiKey] = useState<string>(localStorage.getItem("apiKey") || "");
   const [client, setClient] = useState<ApiClient | null>(null);
-  const [view, setView] = useState<"login" | "register" | "tables">(apiKey ? "tables" : "login");
 
   useEffect(() => {
     if (apiKey) {
@@ -105,7 +106,6 @@ export function App() {
   const handleLogout = () => {
     setApiKey("");
     localStorage.removeItem("apiKey");
-    setView("login");
     notifications.show({
       title: "Logged out",
       message: "You have been successfully logged out",
@@ -113,71 +113,105 @@ export function App() {
     });
   };
 
-  if (!client) {
-    if (view === "login") {
-      return (
-        <AuthForm
-          title="Login to Notably"
-          onSubmit={async ({ username, password }) => {
-            try {
-              const res = await ApiClient.login(username, password);
-              setApiKey(res.apiKey);
-              localStorage.setItem("apiKey", res.apiKey);
-              setView("tables");
-              notifications.show({
-                title: "Welcome back!",
-                message: `Successfully logged in as ${username}`,
-                color: "green",
-              });
-            } catch (error: unknown) {
-              notifications.show({
-                title: "Login failed",
-                message: getErrorMessage(error),
-                color: "red",
-              });
-              throw error;
-            }
-          }}
-          onSwitch={() => setView("register")}
-        />
-      );
-    }
-    return (
-      <AuthForm
-        title="Create an Account"
-        includeEmail
-        onSubmit={async ({ username, email, password }) => {
-          try {
-            const res = await ApiClient.register(username, email!, password);
-            setApiKey(res.apiKey);
-            localStorage.setItem("apiKey", res.apiKey);
-            setView("tables");
-            notifications.show({
-              title: "Account created",
-              message: "Your account has been successfully created",
-              color: "green",
-            });
-          } catch (error: unknown) {
-            notifications.show({
-              title: "Registration failed",
-              message: getErrorMessage(error),
-              color: "red",
-            });
-            throw error;
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route
+          path="/login"
+          element={
+            client ? (
+              <Navigate to="/tables" replace />
+            ) : (
+              <AuthForm
+                title="Login to Notably"
+                onSubmit={async ({ username, password }) => {
+                  try {
+                    const res = await ApiClient.login(username, password);
+                    setApiKey(res.apiKey);
+                    localStorage.setItem("apiKey", res.apiKey);
+                    notifications.show({
+                      title: "Welcome back!",
+                      message: `Successfully logged in as ${username}`,
+                      color: "green",
+                    });
+                  } catch (error: unknown) {
+                    notifications.show({
+                      title: "Login failed",
+                      message: getErrorMessage(error),
+                      color: "red",
+                    });
+                    throw error;
+                  }
+                }}
+                onSwitch={() => "/register"}
+              />
+            )
           }
-        }}
-        onSwitch={() => setView("login")}
-      />
-    );
-  }
-  return <MainApp client={client} onLogout={handleLogout} />;
+        />
+        <Route
+          path="/register"
+          element={
+            client ? (
+              <Navigate to="/tables" replace />
+            ) : (
+              <AuthForm
+                title="Create an Account"
+                includeEmail
+                onSubmit={async ({ username, email, password }) => {
+                  try {
+                    const res = await ApiClient.register(username, email!, password);
+                    setApiKey(res.apiKey);
+                    localStorage.setItem("apiKey", res.apiKey);
+                    notifications.show({
+                      title: "Account created",
+                      message: "Your account has been successfully created",
+                      color: "green",
+                    });
+                  } catch (error: unknown) {
+                    notifications.show({
+                      title: "Registration failed",
+                      message: getErrorMessage(error),
+                      color: "red",
+                    });
+                    throw error;
+                  }
+                }}
+                onSwitch={() => "/login"}
+              />
+            )
+          }
+        />
+        <Route
+          path="/tables"
+          element={
+            !client ? (
+              <Navigate to="/login" replace />
+            ) : (
+              <MainApp client={client} onLogout={handleLogout} />
+            )
+          }
+        />
+        <Route
+          path="/tables/:tableName"
+          element={
+            !client ? (
+              <Navigate to="/login" replace />
+            ) : (
+              <TableDetail client={client} onLogout={handleLogout} />
+            )
+          }
+        />
+        <Route path="/" element={<Navigate to={client ? "/tables" : "/login"} replace />} />
+      </Routes>
+    </BrowserRouter>
+  );
 }
 
 interface AuthFormProps {
   title: string;
   includeEmail?: boolean;
   onSubmit: (fields: { username: string; email?: string; password: string }) => Promise<void>;
-  onSwitch: () => void;
+  onSwitch: () => string;
 }
 
 function AuthForm({ title, includeEmail, onSubmit, onSwitch }: AuthFormProps) {
@@ -185,12 +219,14 @@ function AuthForm({ title, includeEmail, onSubmit, onSwitch }: AuthFormProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
       await onSubmit({ username, email, password });
+      navigate("/tables");
     } catch {
       // Error is handled by notifications in the parent component
     } finally {
@@ -200,7 +236,7 @@ function AuthForm({ title, includeEmail, onSubmit, onSwitch }: AuthFormProps) {
 
   return (
     <Container size="xs" py="xl">
-      <Card shadow="md" radius="md" p="xl" withborder="true">
+      <Card shadow="md" radius="md" p="xl" withBorder>
         <Card.Section bg="blue.6" p="md">
           <Title order={2} c="white">
             {title}
@@ -251,7 +287,12 @@ function AuthForm({ title, includeEmail, onSubmit, onSwitch }: AuthFormProps) {
               <Text size="sm">
                 {includeEmail ? "Already have an account?" : "Don't have an account?"}
               </Text>
-              <Anchor component="button" type="button" onClick={onSwitch} size="sm" color="blue">
+              <Anchor
+                onClick={() => navigate(onSwitch())}
+                size="sm"
+                color="blue"
+                style={{ cursor: "pointer" }}
+              >
                 {includeEmail ? "Login" : "Register"}
               </Anchor>
             </Group>
@@ -269,10 +310,10 @@ interface MainAppProps {
 
 function MainApp({ client, onLogout }: MainAppProps) {
   const [tables, setTables] = useState<TableInfo[]>([]);
-  const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [createModalOpen, { open: openCreateModal, close: closeCreateModal }] =
     useDisclosure(false);
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   // Form for creating a new table with columns
   const form = useForm({
@@ -337,17 +378,6 @@ function MainApp({ client, onLogout }: MainAppProps) {
     }
   };
 
-  if (selectedTable) {
-    return (
-      <TableView
-        table={selectedTable}
-        client={client}
-        onBack={() => setSelectedTable(null)}
-        tableInfo={tables.find((t) => t.name === selectedTable)}
-      />
-    );
-  }
-
   return (
     <AppShell header={{ height: 60 }} padding="md">
       <Flex justify="space-between" align="center" h="100%">
@@ -411,7 +441,7 @@ function MainApp({ client, onLogout }: MainAppProps) {
                       <Button
                         variant="light"
                         size="xs"
-                        onClick={() => setSelectedTable(table.name)}
+                        onClick={() => navigate(`/tables/${encodeURIComponent(table.name)}`)}
                       >
                         Open
                       </Button>
@@ -506,6 +536,59 @@ interface TableViewProps {
   client: ApiClient;
   onBack: () => void;
   tableInfo?: TableInfo;
+}
+
+// Add a new TableDetail component that uses URL parameters
+function TableDetail({ client }: MainAppProps) {
+  const { tableName } = useParams<{ tableName: string }>();
+  const navigate = useNavigate();
+  const [tableInfo, setTableInfo] = useState<TableInfo | undefined>(undefined);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadTableInfo() {
+      setLoading(true);
+      try {
+        const res = await client.listTables();
+        const foundTable = res.tables.find((t) => t.name === tableName);
+        setTableInfo(foundTable);
+      } catch (error) {
+        notifications.show({
+          title: "Error",
+          message: getErrorMessage(error),
+          color: "red",
+        });
+        navigate("/tables");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    if (tableName) {
+      loadTableInfo();
+    }
+  }, [tableName, client, navigate]);
+
+  if (loading) {
+    return (
+      <Center style={{ height: "100vh" }}>
+        <Loader size="xl" />
+      </Center>
+    );
+  }
+
+  if (!tableName || !tableInfo) {
+    return <Navigate to="/tables" replace />;
+  }
+
+  return (
+    <TableView
+      table={tableName}
+      client={client}
+      onBack={() => navigate("/tables")}
+      tableInfo={tableInfo}
+    />
+  );
 }
 
 function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
@@ -635,13 +718,17 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
   const addRow = async () => {
     setLoading(true);
     try {
-      await client.createRow(table, newRowId, newRowValues);
+      // Use provided ID or let the backend generate one
+      const rowId = newRowId.trim()
+        ? newRowId
+        : `row_${Math.random().toString(36).substring(2, 11)}`;
+      await client.createRow(table, rowId, newRowValues);
       closeNewRowDrawer();
       setNewRowId("");
       loadRows();
       notifications.show({
         title: "Row added",
-        message: `Added row with ID ${newRowId}`,
+        message: `Added row with ID ${rowId}`,
         color: "green",
       });
     } catch (error: unknown) {
@@ -799,7 +886,7 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
       </Flex>
 
       <Container size="lg" py="md">
-        <Tabs value={activeTab} onTabChange={setActiveTab}>
+        <Tabs value={activeTab} onChange={setActiveTab}>
           <Tabs.List>
             <Tabs.Tab value="rows" icon={<IconTable size={16} />}>
               Rows
@@ -819,7 +906,7 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
                   <Stack align="center" spacing="sm">
                     <IconTable size={48} opacity={0.3} />
                     <Text c="dimmed">No rows yet. Add your first row to get started.</Text>
-                    <Button mt="md" onClick={openNewRowDrawer} lefticon={<IconPlus size={16} />}>
+                    <Button mt="md" onClick={openNewRowDrawer} leftIcon={<IconPlus size={16} />}>
                       Add Row
                     </Button>
                   </Stack>
@@ -1034,12 +1121,11 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
       >
         <Paper p="md" withborder="true">
           <TextInput
-            label="Row ID"
-            description="Unique identifier for this row"
-            placeholder="Enter row ID"
+            label="Row ID (optional)"
+            description="Unique identifier for this row - will be auto-generated if left empty"
+            placeholder="Enter row ID or leave empty for auto-generation"
             value={newRowId}
             onChange={(e) => setNewRowId(e.target.value)}
-            required
             mb="md"
           />
 

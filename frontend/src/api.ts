@@ -134,11 +134,12 @@ export class ApiClient {
     return handleResponse(res);
   }
 
-  async createRow(table: string, id: string, values: Record<string, unknown>): Promise<RowData> {
+  async createRow(table: string, id?: string, values: Record<string, unknown>): Promise<RowData> {
+    const payload = id && id.trim() ? { id, values } : { values };
     const res = await fetch(`/api/tables/${encodeURIComponent(table)}/rows`, {
       method: "POST",
       headers: this.headers(),
-      body: JSON.stringify({ id, values }),
+      body: JSON.stringify(payload),
     });
     return handleResponse(res);
   }
