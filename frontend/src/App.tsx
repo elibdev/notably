@@ -200,7 +200,7 @@ function AuthForm({ title, includeEmail, onSubmit, onSwitch }: AuthFormProps) {
 
   return (
     <Container size="xs" py="xl">
-      <Card shadow="md" radius="md" p="xl" withBorder>
+      <Card shadow="md" radius="md" p="xl" withborder="true">
         <Card.Section bg="blue.6" p="md">
           <Title order={2} c="white">
             {title}
@@ -355,16 +355,16 @@ function MainApp({ client, onLogout }: MainAppProps) {
           <IconDatabase size={24} />
           <Title order={3}>Notably</Title>
         </Group>
-        <Button variant="subtle" color="red" onClick={onLogout} leftIcon={<IconLogout size={16} />}>
+        <Button variant="subtle" color="red" onClick={onLogout} lefticon={<IconLogout size={16} />}>
           Logout
         </Button>
       </Flex>
 
       <Container size="lg" py="md">
-        <Paper p="md" shadow="sm" radius="md" withBorder>
+        <Paper p="md" shadow="sm" radius="md" withborder="true">
           <Flex justify="space-between" align="center" mb="md">
             <Title order={4}>Your Tables</Title>
-            <Button leftIcon={<IconPlus size={16} />} onClick={openCreateModal}>
+            <Button lefticon={<IconPlus size={16} />} onClick={openCreateModal}>
               Create Table
             </Button>
           </Flex>
@@ -377,7 +377,7 @@ function MainApp({ client, onLogout }: MainAppProps) {
               </Stack>
             </Center>
           ) : (
-            <Table striped highlightOnHover withBorder>
+            <Table striped highlightOnHover withborder="true">
               <thead>
                 <tr>
                   <th>Name</th>
@@ -785,14 +785,14 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
     <AppShell header={{ height: 60 }} padding="md">
       <Flex justify="space-between" align="center" h="100%">
         <Group>
-          <Button variant="subtle" leftIcon={<IconChevronLeft size={16} />} onClick={onBack}>
+          <Button variant="subtle" lefticon={<IconChevronLeft size={16} />} onClick={onBack}>
             Back to Tables
           </Button>
           <Title order={3}>{table}</Title>
         </Group>
         <Group>
           <Badge size="lg">{rows.length} rows</Badge>
-          <Button onClick={openNewRowDrawer} leftIcon={<IconPlus size={16} />}>
+          <Button onClick={openNewRowDrawer} lefticon={<IconPlus size={16} />}>
             Add Row
           </Button>
         </Group>
@@ -813,20 +813,20 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
           </Tabs.List>
 
           <Tabs.Panel value="rows" pt="md">
-            <Paper p="md" withBorder>
+            <Paper p="md" withborder="true">
               {rows.length === 0 ? (
                 <Center py="xl">
                   <Stack align="center" spacing="sm">
                     <IconTable size={48} opacity={0.3} />
                     <Text c="dimmed">No rows yet. Add your first row to get started.</Text>
-                    <Button mt="md" onClick={openNewRowDrawer} leftIcon={<IconPlus size={16} />}>
+                    <Button mt="md" onClick={openNewRowDrawer} lefticon={<IconPlus size={16} />}>
                       Add Row
                     </Button>
                   </Stack>
                 </Center>
               ) : (
                 <ScrollArea>
-                  <Table striped highlightOnHover withBorder>
+                  <Table striped highlightOnHover withborder="true">
                     <thead>
                       <tr>
                         <th>ID</th>
@@ -912,7 +912,7 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
               <Divider my="md" label="Snapshot Results" labelPosition="center" />
 
               {rows.length > 0 ? (
-                <Table striped highlightOnHover withBorder>
+                <Table striped highlightOnHover withborder="true">
                   <thead>
                     <tr>
                       <th>ID</th>
@@ -953,7 +953,7 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
           </Tabs.Panel>
 
           <Tabs.Panel value="history" pt="md">
-            <Paper p="md" withBorder>
+            <Paper p="md" withborder="true">
               <Grid>
                 <Grid.Col span={4}>
                   <DateTimePicker
@@ -1032,7 +1032,7 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
         position="right"
         size="lg"
       >
-        <Paper p="md" withBorder>
+        <Paper p="md" withborder="true">
           <TextInput
             label="Row ID"
             description="Unique identifier for this row"
@@ -1076,7 +1076,7 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
         position="right"
         size="lg"
       >
-        <Paper p="md" withBorder>
+        <Paper p="md" withborder="true">
           <Title order={5} mb="md">
             Row Values
           </Title>
