@@ -455,16 +455,10 @@ func (s *Server) handleAPIKeyRevoke(w http.ResponseWriter, r *http.Request) {
 // Table and row data types
 
 // TableInfo represents metadata for a user table
-type ColumnDefinition struct {
-	Name     string `json:"name"`
-	DataType string `json:"dataType"`
-}
-
-// TableInfo represents metadata for a user table
 type TableInfo struct {
-	Name      string            `json:"name"`
-	CreatedAt time.Time         `json:"createdAt"`
-	Columns   []ColumnDefinition `json:"columns,omitempty"`
+	Name      string                `json:"name"`
+	CreatedAt time.Time             `json:"createdAt"`
+	Columns   []dynamo.ColumnDefinition `json:"columns,omitempty"`
 }
 
 // RowData represents a row snapshot for a table
@@ -491,8 +485,8 @@ func (s *Server) handleCreateTable(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Name    string            `json:"name"`
-		Columns []ColumnDefinition `json:"columns,omitempty"`
+		Name    string                 `json:"name"`
+		Columns []dynamo.ColumnDefinition `json:"columns,omitempty"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -612,7 +606,7 @@ func (s *Server) handleCreateRow(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	tableDefinition := facts[0]
-	var columns []ColumnDefinition
+	var columns []dynamo.ColumnDefinition
 	if len(tableDefinition.Columns) > 0 {
 		columns = tableDefinition.Columns
 	}
@@ -642,7 +636,7 @@ func (s *Server) handleCreateRow(w http.ResponseWriter, r *http.Request) {
 		for colName, value := range req.Values {
 			// Check if column is defined
 			found := false
-			var colDef ColumnDefinition
+			var colDef dynamo.ColumnDefinition
 			
 			for _, col := range columns {
 				if col.Name == colName {
@@ -651,12 +645,12 @@ func (s *Server) handleCreateRow(w http.ResponseWriter, r *http.Request) {
 					break
 				}
 			}
-			
+
 			if !found {
 				writeError(w, http.StatusBadRequest, fmt.Sprintf("Column '%s' is not defined in table schema", colName))
 				return
 			}
-			
+
 			// Validate type according to column definition
 			valid := validateValueType(value, colDef.DataType)
 			if !valid {
@@ -672,7 +666,7 @@ func (s *Server) handleCreateRow(w http.ResponseWriter, r *http.Request) {
 			// Check if column is defined
 			found := false
 			var colDef ColumnDefinition
-			
+
 			for _, col := range columns {
 				if col.Name == colName {
 					found = true
@@ -680,12 +674,12 @@ func (s *Server) handleCreateRow(w http.ResponseWriter, r *http.Request) {
 					break
 				}
 			}
-			
+
 			if !found {
 				writeError(w, http.StatusBadRequest, fmt.Sprintf("Column '%s' is not defined in table schema", colName))
 				return
 			}
-			
+
 			// Validate type according to column definition
 			valid := validateValueType(value, colDef.DataType)
 			if !valid {
@@ -734,7 +728,7 @@ func (s *Server) handleListRows(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, fmt.Sprintf("Table '%s' not found", table))
 		return
 	}
-	
+
 	tableDefinition := facts[0]
 	var columns []ColumnDefinition
 	if len(tableDefinition.Columns) > 0 {

@@ -35,7 +35,7 @@ type Fact struct {
 	DataType  string
 	Value     interface{}
 	// For table definitions, this will contain column definitions
-	Columns   []ColumnDefinition `json:"columns,omitempty"`
+	Columns []ColumnDefinition `json:"columns,omitempty"`
 }
 
 // Client wraps DynamoDB operations for facts storage.
