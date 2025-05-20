@@ -456,8 +456,8 @@ func (s *Server) handleAPIKeyRevoke(w http.ResponseWriter, r *http.Request) {
 
 // TableInfo represents metadata for a user table
 type TableInfo struct {
-	Name      string                `json:"name"`
-	CreatedAt time.Time             `json:"createdAt"`
+	Name      string                    `json:"name"`
+	CreatedAt time.Time                 `json:"createdAt"`
 	Columns   []dynamo.ColumnDefinition `json:"columns,omitempty"`
 }
 
@@ -485,7 +485,7 @@ func (s *Server) handleCreateTable(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Name    string                 `json:"name"`
+		Name    string                    `json:"name"`
 		Columns []dynamo.ColumnDefinition `json:"columns,omitempty"`
 	}
 
@@ -604,7 +604,7 @@ func (s *Server) handleCreateRow(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, fmt.Sprintf("Table '%s' not found", table))
 		return
 	}
-	
+
 	tableDefinition := facts[0]
 	var columns []dynamo.ColumnDefinition
 	if len(tableDefinition.Columns) > 0 {
@@ -637,35 +637,6 @@ func (s *Server) handleCreateRow(w http.ResponseWriter, r *http.Request) {
 			// Check if column is defined
 			found := false
 			var colDef dynamo.ColumnDefinition
-			
-			for _, col := range columns {
-				if col.Name == colName {
-					found = true
-					colDef = col
-					break
-				}
-			}
-
-			if !found {
-				writeError(w, http.StatusBadRequest, fmt.Sprintf("Column '%s' is not defined in table schema", colName))
-				return
-			}
-
-			// Validate type according to column definition
-			valid := validateValueType(value, colDef.DataType)
-			if !valid {
-				writeError(w, http.StatusBadRequest, fmt.Sprintf("Value for column '%s' does not match expected type '%s'", colName, colDef.DataType))
-				return
-			}
-		}
-	}
-
-	// Validate values against column definitions if available
-	if len(columns) > 0 {
-		for colName, value := range req.Values {
-			// Check if column is defined
-			found := false
-			var colDef ColumnDefinition
 
 			for _, col := range columns {
 				if col.Name == colName {
@@ -706,7 +677,7 @@ func (s *Server) handleCreateRow(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, RowData{ID: req.ID, Timestamp: fact.Timestamp, Values: req.Values})
 }
 
-func (s *Server) handleListRows(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleTableSnapshot(w http.ResponseWriter, r *http.Request) {
 	user, ok := auth.UserFromContext(r.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "User not found in context")
@@ -729,12 +700,7 @@ func (s *Server) handleListRows(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tableDefinition := facts[0]
-	var columns []ColumnDefinition
-	if len(tableDefinition.Columns) > 0 {
-		columns = tableDefinition.Columns
-	}
-
+	// We found the table definition, now get the snapshot
 	snap, err := store.GetSnapshot(r.Context(), time.Now().UTC())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get rows: %v", err))
@@ -760,7 +726,7 @@ func (s *Server) handleListRows(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]interface{}{"rows": rows})
 }
 
-func (s *Server) handleGetRow(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleUpdateRow(w http.ResponseWriter, r *http.Request) {
 	user, ok := auth.UserFromContext(r.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "User not found in context")
@@ -778,7 +744,8 @@ func (s *Server) handleGetRow(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate table exists
-	if !tableExists(r.Context(), store, user.ID, table) {
+	facts, err := store.QueryByField(r.Context(), user.ID, table, time.Time{}, time.Now().UTC())
+	if err != nil || len(facts) == 0 {
 		writeError(w, http.StatusNotFound, fmt.Sprintf("Table '%s' not found", table))
 		return
 	}
@@ -805,7 +772,7 @@ func (s *Server) handleGetRow(w http.ResponseWriter, r *http.Request) {
 	writeError(w, http.StatusNotFound, fmt.Sprintf("Row '%s' not found in table '%s'", rowID, table))
 }
 
-func (s *Server) handleUpdateRow(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleGetRow(w http.ResponseWriter, r *http.Request) {
 	user, ok := auth.UserFromContext(r.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "User not found in context")
@@ -823,7 +790,8 @@ func (s *Server) handleUpdateRow(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate table exists
-	if !tableExists(r.Context(), store, user.ID, table) {
+	facts, err := store.QueryByField(r.Context(), user.ID, table, time.Time{}, time.Now().UTC())
+	if err != nil || len(facts) == 0 {
 		writeError(w, http.StatusNotFound, fmt.Sprintf("Table '%s' not found", table))
 		return
 	}
@@ -894,8 +862,9 @@ func (s *Server) handleDeleteRow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate table exists
-	if !tableExists(r.Context(), store, user.ID, table) {
+	// Validate table exists and get column definitions
+	facts, err := store.QueryByField(r.Context(), user.ID, table, time.Time{}, time.Now().UTC())
+	if err != nil || len(facts) == 0 {
 		writeError(w, http.StatusNotFound, fmt.Sprintf("Table '%s' not found", table))
 		return
 	}
@@ -917,7 +886,7 @@ func (s *Server) handleDeleteRow(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (s *Server) handleTableSnapshot(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleListRows(w http.ResponseWriter, r *http.Request) {
 	user, ok := auth.UserFromContext(r.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "User not found in context")
@@ -934,7 +903,8 @@ func (s *Server) handleTableSnapshot(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate table exists
-	if !tableExists(r.Context(), store, user.ID, table) {
+	facts, err := store.QueryByField(r.Context(), user.ID, table, time.Time{}, time.Now().UTC())
+	if err != nil || len(facts) == 0 {
 		writeError(w, http.StatusNotFound, fmt.Sprintf("Table '%s' not found", table))
 		return
 	}
@@ -977,6 +947,8 @@ func (s *Server) handleTableSnapshot(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]interface{}{"rows": rows})
 }
 
+// handleTableSnapshot returns a snapshot of a table at a given point in time
+
 func (s *Server) handleTableHistory(w http.ResponseWriter, r *http.Request) {
 	user, ok := auth.UserFromContext(r.Context())
 	if !ok {
@@ -994,7 +966,8 @@ func (s *Server) handleTableHistory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate table exists
-	if !tableExists(r.Context(), store, user.ID, table) {
+	facts, err := store.QueryByField(r.Context(), user.ID, table, time.Time{}, time.Now().UTC())
+	if err != nil || len(facts) == 0 {
 		writeError(w, http.StatusNotFound, fmt.Sprintf("Table '%s' not found", table))
 		return
 	}
@@ -1030,7 +1003,7 @@ func (s *Server) handleTableHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	facts, err := store.QueryByTimeRange(r.Context(), start, end)
+	facts, err = store.QueryByTimeRange(r.Context(), start, end)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to query time range: %v", err))
 		return
@@ -1038,6 +1011,7 @@ func (s *Server) handleTableHistory(w http.ResponseWriter, r *http.Request) {
 
 	events := []RowEvent{}
 	prefix := fmt.Sprintf("%s/%s", user.ID, table)
+
 	for _, f := range facts {
 		if f.Namespace == prefix && f.DataType == "json" {
 			vals, ok := f.Value.(map[string]interface{})
