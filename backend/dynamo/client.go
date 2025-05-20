@@ -20,6 +20,12 @@ const (
 	fieldKeyName   = "FieldKey"
 )
 
+// ColumnDefinition represents a column in a table with its type
+type ColumnDefinition struct {
+	Name     string `json:"name"`
+	DataType string `json:"dataType"`
+}
+
 // Fact represents a single versioned value for a field.
 type Fact struct {
 	ID        string
@@ -28,6 +34,8 @@ type Fact struct {
 	FieldName string
 	DataType  string
 	Value     interface{}
+	// For table definitions, this will contain column definitions
+	Columns   []ColumnDefinition `json:"columns,omitempty"`
 }
 
 // Client wraps DynamoDB operations for facts storage.

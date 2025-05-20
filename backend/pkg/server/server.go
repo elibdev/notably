@@ -73,6 +73,46 @@ func isValidName(name string) bool {
 	return true
 }
 
+// validateValueType checks if a value matches the expected data type
+func validateValueType(value interface{}, dataType string) bool {
+	switch dataType {
+	case "string":
+		_, ok := value.(string)
+		return ok
+	case "number":
+		// Check if float64 (JSON numbers are decoded as float64)
+		_, isFloat := value.(float64)
+		if isFloat {
+			return true
+		}
+		// If not a float, try int
+		_, isInt := value.(int)
+		return isInt
+	case "boolean":
+		_, ok := value.(bool)
+		return ok
+	case "datetime":
+		// Check if string format can be parsed as time
+		str, ok := value.(string)
+		if !ok {
+			return false
+		}
+		_, err := time.Parse(time.RFC3339, str)
+		return err == nil
+	case "object", "json":
+		// For object/json, we expect a map
+		_, ok := value.(map[string]interface{})
+		return ok
+	case "array":
+		// For arrays, check if it's a slice
+		_, ok := value.([]interface{})
+		return ok
+	default:
+		// Unknown type, consider valid
+		return true
+	}
+}
+
 // Helper function to check if a table exists for the given user
 func tableExists(ctx context.Context, store *db.StoreAdapter, userID, table string) bool {
 	snap, err := store.GetSnapshot(ctx, time.Now().UTC())
@@ -415,9 +455,16 @@ func (s *Server) handleAPIKeyRevoke(w http.ResponseWriter, r *http.Request) {
 // Table and row data types
 
 // TableInfo represents metadata for a user table
+type ColumnDefinition struct {
+	Name     string `json:"name"`
+	DataType string `json:"dataType"`
+}
+
+// TableInfo represents metadata for a user table
 type TableInfo struct {
-	Name      string    `json:"name"`
-	CreatedAt time.Time `json:"createdAt"`
+	Name      string            `json:"name"`
+	CreatedAt time.Time         `json:"createdAt"`
+	Columns   []ColumnDefinition `json:"columns,omitempty"`
 }
 
 // RowData represents a row snapshot for a table
@@ -444,7 +491,8 @@ func (s *Server) handleCreateTable(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Name string `json:"name"`
+		Name    string            `json:"name"`
+		Columns []ColumnDefinition `json:"columns,omitempty"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -471,13 +519,32 @@ func (s *Server) handleCreateTable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate column definitions if provided
+	if len(req.Columns) > 0 {
+		for _, col := range req.Columns {
+			if col.Name == "" {
+				writeError(w, http.StatusBadRequest, "Column name is required")
+				return
+			}
+			if !isValidName(col.Name) {
+				writeError(w, http.StatusBadRequest, fmt.Sprintf("Column name '%s' must contain only alphanumeric characters, hyphens, and underscores", col.Name))
+				return
+			}
+			if col.DataType == "" {
+				writeError(w, http.StatusBadRequest, fmt.Sprintf("Data type is required for column '%s'", col.Name))
+				return
+			}
+		}
+	}
+
 	fact := dynamo.Fact{
 		ID:        newID(),
 		Timestamp: time.Now().UTC(),
 		Namespace: user.ID,
 		FieldName: req.Name,
-		DataType:  "string",
+		DataType:  "table",
 		Value:     "",
+		Columns:   req.Columns,
 	}
 
 	if err := store.PutFact(r.Context(), fact); err != nil {
@@ -485,7 +552,7 @@ func (s *Server) handleCreateTable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, TableInfo{Name: req.Name, CreatedAt: fact.Timestamp})
+	writeJSON(w, http.StatusCreated, TableInfo{Name: req.Name, CreatedAt: fact.Timestamp, Columns: req.Columns})
 }
 
 func (s *Server) handleListTables(w http.ResponseWriter, r *http.Request) {
@@ -537,10 +604,17 @@ func (s *Server) handleCreateRow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate table exists
-	if !tableExists(r.Context(), store, user.ID, table) {
+	// Validate table exists and get column definitions
+	facts, err := store.QueryByField(r.Context(), user.ID, table, time.Time{}, time.Now().UTC())
+	if err != nil || len(facts) == 0 {
 		writeError(w, http.StatusNotFound, fmt.Sprintf("Table '%s' not found", table))
 		return
+	}
+	
+	tableDefinition := facts[0]
+	var columns []ColumnDefinition
+	if len(tableDefinition.Columns) > 0 {
+		columns = tableDefinition.Columns
 	}
 
 	var req struct {
@@ -561,6 +635,64 @@ func (s *Server) handleCreateRow(w http.ResponseWriter, r *http.Request) {
 	if req.Values == nil {
 		writeError(w, http.StatusBadRequest, "Row values are required")
 		return
+	}
+
+	// Validate values against column definitions if available
+	if len(columns) > 0 {
+		for colName, value := range req.Values {
+			// Check if column is defined
+			found := false
+			var colDef ColumnDefinition
+			
+			for _, col := range columns {
+				if col.Name == colName {
+					found = true
+					colDef = col
+					break
+				}
+			}
+			
+			if !found {
+				writeError(w, http.StatusBadRequest, fmt.Sprintf("Column '%s' is not defined in table schema", colName))
+				return
+			}
+			
+			// Validate type according to column definition
+			valid := validateValueType(value, colDef.DataType)
+			if !valid {
+				writeError(w, http.StatusBadRequest, fmt.Sprintf("Value for column '%s' does not match expected type '%s'", colName, colDef.DataType))
+				return
+			}
+		}
+	}
+
+	// Validate values against column definitions if available
+	if len(columns) > 0 {
+		for colName, value := range req.Values {
+			// Check if column is defined
+			found := false
+			var colDef ColumnDefinition
+			
+			for _, col := range columns {
+				if col.Name == colName {
+					found = true
+					colDef = col
+					break
+				}
+			}
+			
+			if !found {
+				writeError(w, http.StatusBadRequest, fmt.Sprintf("Column '%s' is not defined in table schema", colName))
+				return
+			}
+			
+			// Validate type according to column definition
+			valid := validateValueType(value, colDef.DataType)
+			if !valid {
+				writeError(w, http.StatusBadRequest, fmt.Sprintf("Value for column '%s' does not match expected type '%s'", colName, colDef.DataType))
+				return
+			}
+		}
 	}
 
 	fact := dynamo.Fact{
@@ -596,10 +728,17 @@ func (s *Server) handleListRows(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate table exists
-	if !tableExists(r.Context(), store, user.ID, table) {
+	// Validate table exists and get column definitions
+	facts, err := store.QueryByField(r.Context(), user.ID, table, time.Time{}, time.Now().UTC())
+	if err != nil || len(facts) == 0 {
 		writeError(w, http.StatusNotFound, fmt.Sprintf("Table '%s' not found", table))
 		return
+	}
+	
+	tableDefinition := facts[0]
+	var columns []ColumnDefinition
+	if len(tableDefinition.Columns) > 0 {
+		columns = tableDefinition.Columns
 	}
 
 	snap, err := store.GetSnapshot(r.Context(), time.Now().UTC())

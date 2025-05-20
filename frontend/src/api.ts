@@ -1,6 +1,12 @@
+export interface ColumnDefinition {
+  name: string;
+  dataType: string;
+}
+
 export interface TableInfo {
   name: string;
   createdAt: string;
+  columns?: ColumnDefinition[];
 }
 
 export interface RowData {
@@ -97,11 +103,11 @@ export class ApiClient {
     return handleResponse(res);
   }
 
-  async createTable(name: string): Promise<TableInfo> {
+  async createTable(name: string, columns?: ColumnDefinition[]): Promise<TableInfo> {
     const res = await fetch("/api/tables", {
       method: "POST",
       headers: this.headers(),
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, columns }),
     });
     return handleResponse(res);
   }
