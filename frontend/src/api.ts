@@ -3,6 +3,12 @@ export interface ColumnDefinition {
   dataType: string;
 }
 
+// Error type for enhanced error objects
+interface ErrorWithDetails extends Error {
+  status?: number;
+  responseData?: unknown;
+}
+
 export interface TableInfo {
   name: string;
   createdAt: string;
@@ -12,13 +18,13 @@ export interface TableInfo {
 export interface RowData {
   id: string;
   timestamp: string;
-  values: Record<string, any>;
+  values: Record<string, unknown>;
 }
 
 export interface RowEvent {
   id: string;
   timestamp: string;
-  values: Record<string, any> | null;
+  values: Record<string, unknown> | null;
 }
 
 export interface RegisterResponse {
@@ -28,7 +34,8 @@ export interface RegisterResponse {
   apiKey: string;
 }
 
-export interface LoginResponse extends RegisterResponse {}
+// Use type alias instead of empty interface extension
+export type LoginResponse = RegisterResponse;
 
 async function handleResponse(response: Response) {
   const contentType = response.headers.get("Content-Type") || "";
@@ -43,8 +50,8 @@ async function handleResponse(response: Response) {
     // Preserve original error message but add status code for better debugging
     const error = new Error(`${errorMsg} (Status ${response.status})`);
     // Add additional properties to the error object for debugging
-    (error as any).status = response.status;
-    (error as any).responseData = data;
+    (error as ErrorWithDetails).status = response.status;
+    (error as ErrorWithDetails).responseData = data;
     throw error;
   }
   return data;
@@ -127,7 +134,7 @@ export class ApiClient {
     return handleResponse(res);
   }
 
-  async createRow(table: string, id: string, values: Record<string, any>): Promise<RowData> {
+  async createRow(table: string, id: string, values: Record<string, unknown>): Promise<RowData> {
     const res = await fetch(`/api/tables/${encodeURIComponent(table)}/rows`, {
       method: "POST",
       headers: this.headers(),
@@ -136,7 +143,7 @@ export class ApiClient {
     return handleResponse(res);
   }
 
-  async updateRow(table: string, id: string, values: Record<string, any>): Promise<RowData> {
+  async updateRow(table: string, id: string, values: Record<string, unknown>): Promise<RowData> {
     const res = await fetch(
       `/api/tables/${encodeURIComponent(table)}/rows/${encodeURIComponent(id)}`,
       {

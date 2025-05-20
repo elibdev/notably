@@ -1,35 +1,93 @@
-import React, { useState, useEffect } from "react";
-import { 
-  ApiClient, 
-  type TableInfo, 
-  type RowData, 
-  type RowEvent, 
-  type ColumnDefinition 
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import {
+  ApiClient,
+  type TableInfo,
+  type RowData,
+  type RowEvent,
+  type ColumnDefinition,
 } from "./api";
-import { 
-  AppShell, 
-  Button, 
-  Flex, 
-  Text, 
-  Title, 
-  Container, 
-  Paper, 
-  Image, 
-  Group, 
-  Anchor, 
+
+// Mantine UI components
+import {
+  AppShell,
+  Button,
+  Flex,
+  Text,
+  Title,
+  Container,
+  Paper,
+  Group,
+  Anchor,
   Center,
-  Header
-} from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
-import { notifications } from '@mantine/notifications';
-import { 
-  IconDatabase, 
-  IconTable, 
-  IconLogout, 
-  IconUserPlus, 
-  IconLogin, 
-  IconLayoutDashboard 
-} from '@tabler/icons-react';
+  TextInput,
+  ActionIcon,
+  Table,
+  Badge,
+  Modal,
+  Grid,
+  Select,
+  Accordion,
+  ScrollArea,
+  Box,
+  PasswordInput,
+  Card,
+  Stack,
+  LoadingOverlay,
+  Tabs,
+  Drawer,
+  Tooltip,
+  Code,
+  JsonInput,
+  Divider,
+} from "@mantine/core";
+
+import { DateTimePicker } from "@mantine/dates";
+
+// Mantine hooks
+import { useDisclosure } from "@mantine/hooks";
+import { useForm } from "@mantine/form";
+
+// Notifications
+import { notifications } from "@mantine/notifications";
+
+// Icons
+import {
+  IconDatabase,
+  IconTable,
+  IconLogout,
+  IconUserPlus,
+  IconPlus,
+  IconTrash,
+  IconEdit,
+  IconHistory,
+  IconClock,
+  IconChevronLeft,
+  IconCheck,
+  IconX,
+} from "@tabler/icons-react";
+
+// Define type for error with message
+interface ErrorWithMessage {
+  message: string;
+}
+
+// Type guard for ErrorWithMessage
+function isErrorWithMessage(error: unknown): error is ErrorWithMessage {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof (error as Record<string, unknown>).message === "string"
+  );
+}
+
+// Function to get error message from unknown error
+function getErrorMessage(error: unknown): string {
+  if (isErrorWithMessage(error)) {
+    return error.message;
+  }
+  return String(error);
+}
 
 export function App() {
   const [apiKey, setApiKey] = useState<string>(localStorage.getItem("apiKey") || "");
@@ -49,9 +107,9 @@ export function App() {
     localStorage.removeItem("apiKey");
     setView("login");
     notifications.show({
-      title: 'Logged out',
-      message: 'You have been successfully logged out',
-      color: 'blue'
+      title: "Logged out",
+      message: "You have been successfully logged out",
+      color: "blue",
     });
   };
 
@@ -67,15 +125,15 @@ export function App() {
               localStorage.setItem("apiKey", res.apiKey);
               setView("tables");
               notifications.show({
-                title: 'Welcome back!',
+                title: "Welcome back!",
                 message: `Successfully logged in as ${username}`,
-                color: 'green'
+                color: "green",
               });
-            } catch (error: any) {
+            } catch (error: unknown) {
               notifications.show({
-                title: 'Login failed',
-                message: error.message,
-                color: 'red'
+                title: "Login failed",
+                message: getErrorMessage(error),
+                color: "red",
               });
               throw error;
             }
@@ -95,15 +153,15 @@ export function App() {
             localStorage.setItem("apiKey", res.apiKey);
             setView("tables");
             notifications.show({
-              title: 'Account created',
-              message: 'Your account has been successfully created',
-              color: 'green'
+              title: "Account created",
+              message: "Your account has been successfully created",
+              color: "green",
             });
-          } catch (error: any) {
+          } catch (error: unknown) {
             notifications.show({
-              title: 'Registration failed',
-              message: error.message,
-              color: 'red'
+              title: "Registration failed",
+              message: getErrorMessage(error),
+              color: "red",
             });
             throw error;
           }
@@ -122,14 +180,6 @@ interface AuthFormProps {
   onSwitch: () => void;
 }
 
-import { 
-  TextInput, 
-  PasswordInput, 
-  Card, 
-  Stack, 
-  LoadingOverlay
-} from '@mantine/core';
-
 function AuthForm({ title, includeEmail, onSubmit, onSwitch }: AuthFormProps) {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -141,7 +191,7 @@ function AuthForm({ title, includeEmail, onSubmit, onSwitch }: AuthFormProps) {
     setLoading(true);
     try {
       await onSubmit({ username, email, password });
-    } catch (err) {
+    } catch {
       // Error is handled by notifications in the parent component
     } finally {
       setLoading(false);
@@ -152,13 +202,19 @@ function AuthForm({ title, includeEmail, onSubmit, onSwitch }: AuthFormProps) {
     <Container size="xs" py="xl">
       <Card shadow="md" radius="md" p="xl" withBorder>
         <Card.Section bg="blue.6" p="md">
-          <Title order={2} c="white">{title}</Title>
+          <Title order={2} c="white">
+            {title}
+          </Title>
         </Card.Section>
-        
+
         <form onSubmit={handleSubmit}>
           <Stack spacing="md" mt="md" pos="relative">
-            <LoadingOverlay visible={loading} zIndex={1000} overlayProps={{ radius: "sm", blur: 2 }} />
-            
+            <LoadingOverlay
+              visible={loading}
+              zIndex={1000}
+              overlayProps={{ radius: "sm", blur: 2 }}
+            />
+
             <TextInput
               label="Username"
               placeholder="johndoe"
@@ -167,7 +223,7 @@ function AuthForm({ title, includeEmail, onSubmit, onSwitch }: AuthFormProps) {
               required
               icon={<IconUserPlus size={16} />}
             />
-            
+
             {includeEmail && (
               <TextInput
                 label="Email"
@@ -178,7 +234,7 @@ function AuthForm({ title, includeEmail, onSubmit, onSwitch }: AuthFormProps) {
                 required
               />
             )}
-            
+
             <PasswordInput
               label="Password"
               placeholder="Your secure password"
@@ -186,11 +242,11 @@ function AuthForm({ title, includeEmail, onSubmit, onSwitch }: AuthFormProps) {
               onChange={(e) => setPassword(e.target.value)}
               required
             />
-            
+
             <Button type="submit" fullWidth color="blue" mt="md">
               {includeEmail ? "Create Account" : "Login"}
             </Button>
-            
+
             <Group position="center" mt="md">
               <Text size="sm">
                 {includeEmail ? "Already have an account?" : "Don't have an account?"}
@@ -206,26 +262,6 @@ function AuthForm({ title, includeEmail, onSubmit, onSwitch }: AuthFormProps) {
   );
 }
 
-import { 
-  TextInput, 
-  ActionIcon, 
-  Table, 
-  Badge, 
-  Modal,
-  Grid, 
-  Select,
-  Accordion,
-  ScrollArea,
-  Box
-} from '@mantine/core';
-import { useForm } from '@mantine/form';
-import { 
-  IconPlus, 
-  IconTrash, 
-  IconEdit, 
-  IconColumnInsertRight
-} from '@tabler/icons-react';
-
 interface MainAppProps {
   client: ApiClient;
   onLogout: () => void;
@@ -234,25 +270,27 @@ interface MainAppProps {
 function MainApp({ client, onLogout }: MainAppProps) {
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
-  const [createModalOpen, { open: openCreateModal, close: closeCreateModal }] = useDisclosure(false);
+  const [createModalOpen, { open: openCreateModal, close: closeCreateModal }] =
+    useDisclosure(false);
   const [loading, setLoading] = useState(false);
-  
+
   // Form for creating a new table with columns
   const form = useForm({
     initialValues: {
-      name: '',
-      columns: [{ name: '', dataType: 'string' }]
+      name: "",
+      columns: [{ name: "", dataType: "string" }],
     },
     validate: {
-      name: (value) => (!value ? 'Table name is required' : null),
+      name: (value) => (!value ? "Table name is required" : null),
       columns: {
-        name: (value) => (!value ? 'Column name is required' : null),
-        dataType: (value) => (!value ? 'Data type is required' : null)
-      }
-    }
+        name: (value) => (!value ? "Column name is required" : null),
+        dataType: (value) => (!value ? "Data type is required" : null),
+      },
+    },
   });
 
-  const loadTables = async () => {
+  // Memoize loadTables to prevent recreation on every render
+  const loadTables = useCallback(async () => {
     setLoading(true);
     try {
       const res = await client.listTables();
@@ -260,28 +298,28 @@ function MainApp({ client, onLogout }: MainAppProps) {
     } catch (error: unknown) {
       if (error instanceof Error) {
         notifications.show({
-          title: 'Error',
-          message: error.message,
-          color: 'red'
+          title: "Error",
+          message: getErrorMessage(error),
+          color: "red",
         });
       }
     } finally {
       setLoading(false);
     }
-  };
+  }, [client]);
 
   useEffect(() => {
     loadTables();
-  }, []);
+  }, [loadTables]);
 
-  const handleCreateTable = async (values: {name: string, columns: ColumnDefinition[]}) => {
+  const handleCreateTable = async (values: { name: string; columns: ColumnDefinition[] }) => {
     setLoading(true);
     try {
       await client.createTable(values.name, values.columns);
       notifications.show({
-        title: 'Success',
+        title: "Success",
         message: `Table "${values.name}" created successfully`,
-        color: 'green'
+        color: "green",
       });
       form.reset();
       closeCreateModal();
@@ -289,9 +327,9 @@ function MainApp({ client, onLogout }: MainAppProps) {
     } catch (error: unknown) {
       if (error instanceof Error) {
         notifications.show({
-          title: 'Error',
+          title: "Error",
           message: error.message,
-          color: 'red'
+          color: "red",
         });
       }
     } finally {
@@ -301,45 +339,32 @@ function MainApp({ client, onLogout }: MainAppProps) {
 
   if (selectedTable) {
     return (
-      <TableView 
-        table={selectedTable} 
-        client={client} 
-        onBack={() => setSelectedTable(null)} 
-        tableInfo={tables.find(t => t.name === selectedTable)}
+      <TableView
+        table={selectedTable}
+        client={client}
+        onBack={() => setSelectedTable(null)}
+        tableInfo={tables.find((t) => t.name === selectedTable)}
       />
     );
   }
 
   return (
-    <AppShell
-      header={{ height: 60 }}
-      padding="md"
-    >
-      <Header height={60} p="xs">
-        <Flex justify="space-between" align="center" h="100%">
-          <Group>
-            <IconDatabase size={24} />
-            <Title order={3}>Notably</Title>
-          </Group>
-          <Button 
-            variant="subtle" 
-            color="red" 
-            onClick={onLogout}
-            leftIcon={<IconLogout size={16} />}
-          >
-            Logout
-          </Button>
-        </Flex>
-      </Header>
+    <AppShell header={{ height: 60 }} padding="md">
+      <Flex justify="space-between" align="center" h="100%">
+        <Group>
+          <IconDatabase size={24} />
+          <Title order={3}>Notably</Title>
+        </Group>
+        <Button variant="subtle" color="red" onClick={onLogout} leftIcon={<IconLogout size={16} />}>
+          Logout
+        </Button>
+      </Flex>
 
       <Container size="lg" py="md">
         <Paper p="md" shadow="sm" radius="md" withBorder>
           <Flex justify="space-between" align="center" mb="md">
             <Title order={4}>Your Tables</Title>
-            <Button 
-              leftIcon={<IconPlus size={16} />} 
-              onClick={openCreateModal}
-            >
+            <Button leftIcon={<IconPlus size={16} />} onClick={openCreateModal}>
               Create Table
             </Button>
           </Flex>
@@ -370,10 +395,16 @@ function MainApp({ client, onLogout }: MainAppProps) {
                     <td>{new Date(table.createdAt).toLocaleString()}</td>
                     <td>
                       <Group spacing="xs">
-                        {table.columns?.map(col => (
-                          <Badge key={col.name}>{col.name}: {col.dataType}</Badge>
+                        {table.columns?.map((col) => (
+                          <Badge key={col.name}>
+                            {col.name}: {col.dataType}
+                          </Badge>
                         ))}
-                        {!table.columns?.length && <Text size="sm" c="dimmed">No schema defined</Text>}
+                        {!table.columns?.length && (
+                          <Text size="sm" c="dimmed">
+                            No schema defined
+                          </Text>
+                        )}
                       </Group>
                     </td>
                     <td>
@@ -394,23 +425,20 @@ function MainApp({ client, onLogout }: MainAppProps) {
       </Container>
 
       {/* Create Table Modal */}
-      <Modal
-        opened={createModalOpen}
-        onClose={closeCreateModal}
-        title="Create New Table"
-        size="lg"
-      >
+      <Modal opened={createModalOpen} onClose={closeCreateModal} title="Create New Table" size="lg">
         <form onSubmit={form.onSubmit(handleCreateTable)}>
           <TextInput
             label="Table Name"
             placeholder="Enter table name"
             required
-            {...form.getInputProps('name')}
+            {...form.getInputProps("name")}
             mb="md"
           />
 
-          <Title order={5} mb="xs">Column Definitions</Title>
-          
+          <Title order={5} mb="xs">
+            Column Definitions
+          </Title>
+
           <Box mb="md">
             {form.values.columns.map((_, index) => (
               <Grid key={index} mb="xs" align="flex-end">
@@ -426,12 +454,12 @@ function MainApp({ client, onLogout }: MainAppProps) {
                     label={index === 0 ? "Data Type" : ""}
                     placeholder="Select data type"
                     data={[
-                      { value: 'string', label: 'String' },
-                      { value: 'number', label: 'Number' },
-                      { value: 'boolean', label: 'Boolean' },
-                      { value: 'datetime', label: 'DateTime' },
-                      { value: 'object', label: 'Object/JSON' },
-                      { value: 'array', label: 'Array' }
+                      { value: "string", label: "String" },
+                      { value: "number", label: "Number" },
+                      { value: "boolean", label: "Boolean" },
+                      { value: "datetime", label: "DateTime" },
+                      { value: "object", label: "Object/JSON" },
+                      { value: "array", label: "Array" },
                     ]}
                     {...form.getInputProps(`columns.${index}.dataType`)}
                   />
@@ -441,16 +469,15 @@ function MainApp({ client, onLogout }: MainAppProps) {
                     {index === form.values.columns.length - 1 && (
                       <ActionIcon
                         color="blue"
-                        onClick={() => form.insertListItem('columns', { name: '', dataType: 'string' })}
+                        onClick={() =>
+                          form.insertListItem("columns", { name: "", dataType: "string" })
+                        }
                       >
                         <IconPlus size={16} />
                       </ActionIcon>
                     )}
                     {form.values.columns.length > 1 && (
-                      <ActionIcon
-                        color="red"
-                        onClick={() => form.removeListItem('columns', index)}
-                      >
+                      <ActionIcon color="red" onClick={() => form.removeListItem("columns", index)}>
                         <IconTrash size={16} />
                       </ActionIcon>
                     )}
@@ -461,33 +488,18 @@ function MainApp({ client, onLogout }: MainAppProps) {
           </Box>
 
           <Group position="right" mt="md">
-            <Button variant="subtle" onClick={closeCreateModal}>Cancel</Button>
-            <Button type="submit" loading={loading}>Create Table</Button>
+            <Button variant="subtle" onClick={closeCreateModal}>
+              Cancel
+            </Button>
+            <Button type="submit" loading={loading}>
+              Create Table
+            </Button>
           </Group>
         </form>
       </Modal>
     </AppShell>
   );
 }
-
-import { 
-  Tabs, 
-  Drawer, 
-  SimpleGrid, 
-  Tooltip, 
-  Code, 
-  JsonInput,
-  Divider,
-  DateTimePicker
-} from '@mantine/core';
-import { 
-  IconTable2, 
-  IconHistory, 
-  IconClock, 
-  IconChevronLeft, 
-  IconCheck, 
-  IconX
-} from '@tabler/icons-react';
 
 interface TableViewProps {
   table: string;
@@ -500,52 +512,56 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
   const [rows, setRows] = useState<RowData[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<string | null>("rows");
-  const [newRowDrawerOpen, { open: openNewRowDrawer, close: closeNewRowDrawer }] = useDisclosure(false);
-  const [editRowDrawerOpen, { open: openEditRowDrawer, close: closeEditRowDrawer }] = useDisclosure(false);
+  const [newRowDrawerOpen, { open: openNewRowDrawer, close: closeNewRowDrawer }] =
+    useDisclosure(false);
+  const [editRowDrawerOpen, { open: openEditRowDrawer, close: closeEditRowDrawer }] =
+    useDisclosure(false);
   const [currentEditingRow, setCurrentEditingRow] = useState<string>("");
-  const [newRowValues, setNewRowValues] = useState<Record<string, any>>({});
+  const [newRowValues, setNewRowValues] = useState<Record<string, unknown>>({});
   const [newRowId, setNewRowId] = useState("");
-  
+
   const [snapshotAt, setSnapshotAt] = useState<Date | null>(null);
-  const [historyRange, setHistoryRange] = useState({ 
-    start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), 
-    end: new Date() 
+  const [historyRange, setHistoryRange] = useState({
+    start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+    end: new Date(),
   });
   const [historyEvents, setHistoryEvents] = useState<RowEvent[]>([]);
 
-  const columns = tableInfo?.columns || [];
-  
+  // Memoize columns to prevent unnecessary re-renders
+  const columns = useMemo(() => tableInfo?.columns || [], [tableInfo?.columns]);
+
   // Create a form for new row with default values based on column definitions
   useEffect(() => {
-    const defaultValues: Record<string, any> = {};
-    columns.forEach(col => {
-      switch(col.dataType) {
-        case 'string':
-          defaultValues[col.name] = '';
+    const defaultValues: Record<string, unknown> = {};
+    columns.forEach((col) => {
+      switch (col.dataType) {
+        case "string":
+          defaultValues[col.name] = "";
           break;
-        case 'number':
+        case "number":
           defaultValues[col.name] = 0;
           break;
-        case 'boolean':
+        case "boolean":
           defaultValues[col.name] = false;
           break;
-        case 'datetime':
+        case "datetime":
           defaultValues[col.name] = new Date().toISOString();
           break;
-        case 'object':
+        case "object":
           defaultValues[col.name] = {};
           break;
-        case 'array':
+        case "array":
           defaultValues[col.name] = [];
           break;
         default:
-          defaultValues[col.name] = '';
+          defaultValues[col.name] = "";
       }
     });
     setNewRowValues(defaultValues);
   }, [columns]);
 
-  const loadRows = async () => {
+  // Memoize loadRows to prevent recreation on every render
+  const loadRows = useCallback(async () => {
     setLoading(true);
     try {
       const res = await client.listRows(table);
@@ -553,19 +569,19 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
     } catch (error: unknown) {
       if (error instanceof Error) {
         notifications.show({
-          title: 'Error loading rows',
-          message: error.message,
-          color: 'red'
+          title: "Error loading rows",
+          message: getErrorMessage(error),
+          color: "red",
         });
       }
     } finally {
       setLoading(false);
     }
-  };
+  }, [client, table]);
 
   useEffect(() => {
     loadRows();
-  }, [table]);
+  }, [table, loadRows]);
 
   const applySnapshot = async () => {
     setLoading(true);
@@ -574,16 +590,16 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
       const res = await client.snapshot(table, atIso);
       setRows(res.rows);
       notifications.show({
-        title: 'Snapshot loaded',
-        message: `Loaded table snapshot from ${snapshotAt?.toLocaleString() || 'latest'}`,
-        color: 'blue'
+        title: "Snapshot loaded",
+        message: `Loaded table snapshot from ${snapshotAt?.toLocaleString() || "latest"}`,
+        color: "blue",
       });
     } catch (error: unknown) {
       if (error instanceof Error) {
         notifications.show({
-          title: 'Error loading snapshot',
-          message: error.message,
-          color: 'red'
+          title: "Error loading snapshot",
+          message: getErrorMessage(error),
+          color: "red",
         });
       }
     } finally {
@@ -599,16 +615,16 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
       const e = await client.history(table, startIso, endIso);
       setHistoryEvents(e.events);
       notifications.show({
-        title: 'History loaded',
+        title: "History loaded",
         message: `Loaded ${e.events.length} history events`,
-        color: 'blue'
+        color: "blue",
       });
     } catch (error: unknown) {
       if (error instanceof Error) {
         notifications.show({
-          title: 'Error loading history',
-          message: error.message,
-          color: 'red'
+          title: "Error loading history",
+          message: getErrorMessage(error),
+          color: "red",
         });
       }
     } finally {
@@ -624,16 +640,16 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
       setNewRowId("");
       loadRows();
       notifications.show({
-        title: 'Row added',
+        title: "Row added",
         message: `Added row with ID ${newRowId}`,
-        color: 'green'
+        color: "green",
       });
     } catch (error: unknown) {
       if (error instanceof Error) {
         notifications.show({
-          title: 'Error adding row',
-          message: error.message,
-          color: 'red'
+          title: "Error adding row",
+          message: getErrorMessage(error),
+          color: "red",
         });
       }
     } finally {
@@ -641,23 +657,23 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
     }
   };
 
-  const updateRow = async (id: string, values: Record<string, any>) => {
+  const updateRow = async (id: string, values: Record<string, unknown>) => {
     setLoading(true);
     try {
       await client.updateRow(table, id, values);
       closeEditRowDrawer();
       loadRows();
       notifications.show({
-        title: 'Row updated',
+        title: "Row updated",
         message: `Updated row ${id}`,
-        color: 'green'
+        color: "green",
       });
     } catch (error: unknown) {
       if (error instanceof Error) {
         notifications.show({
-          title: 'Error updating row',
-          message: error.message,
-          color: 'red'
+          title: "Error updating row",
+          message: getErrorMessage(error),
+          color: "red",
         });
       }
     } finally {
@@ -672,16 +688,16 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
       await client.deleteRow(table, id);
       loadRows();
       notifications.show({
-        title: 'Row deleted',
+        title: "Row deleted",
         message: `Deleted row ${id}`,
-        color: 'blue'
+        color: "blue",
       });
     } catch (error: unknown) {
       if (error instanceof Error) {
         notifications.show({
-          title: 'Error deleting row',
-          message: error.message,
-          color: 'red'
+          title: "Error deleting row",
+          message: getErrorMessage(error),
+          color: "red",
         });
       }
     } finally {
@@ -690,7 +706,7 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
   };
 
   const startEditRow = (id: string) => {
-    const row = rows.find(r => r.id === id);
+    const row = rows.find((r) => r.id === id);
     if (row) {
       setNewRowValues(row.values);
       setCurrentEditingRow(id);
@@ -698,53 +714,58 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
     }
   };
 
-  const renderInputForType = (columnName: string, dataType: string, value: any, onChange: (value: any) => void) => {
-    switch(dataType) {
-      case 'string':
+  const renderInputForType = (
+    columnName: string,
+    dataType: string,
+    value: unknown,
+    onChange: (value: unknown) => void,
+  ) => {
+    switch (dataType) {
+      case "string":
         return (
           <TextInput
-            value={value || ''}
+            value={value || ""}
             onChange={(e) => onChange(e.target.value)}
             placeholder={`Enter ${columnName}`}
           />
         );
-      case 'number':
+      case "number":
         return (
           <TextInput
             type="number"
-            value={value?.toString() || '0'}
+            value={value?.toString() || "0"}
             onChange={(e) => onChange(parseFloat(e.target.value))}
             placeholder={`Enter ${columnName}`}
           />
         );
-      case 'boolean':
+      case "boolean":
         return (
           <Select
-            value={value?.toString() || 'false'}
-            onChange={(val) => onChange(val === 'true')}
+            value={value?.toString() || "false"}
+            onChange={(val) => onChange(val === "true")}
             data={[
-              { value: 'true', label: 'True' },
-              { value: 'false', label: 'False' }
+              { value: "true", label: "True" },
+              { value: "false", label: "False" },
             ]}
           />
         );
-      case 'datetime':
+      case "datetime":
         return (
           <DateTimePicker
             value={value ? new Date(value) : new Date()}
             onChange={(date) => onChange(date?.toISOString())}
           />
         );
-      case 'object':
-      case 'array':
-      case 'json':
+      case "object":
+      case "array":
+      case "json":
         return (
           <JsonInput
-            value={JSON.stringify(value || (dataType === 'array' ? [] : {}), null, 2)}
+            value={JSON.stringify(value || (dataType === "array" ? [] : {}), null, 2)}
             onChange={(val) => {
               try {
                 onChange(JSON.parse(val));
-              } catch (e) {
+              } catch {
                 // Invalid JSON, don't update
               }
             }}
@@ -755,49 +776,32 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
         );
       default:
         return (
-          <TextInput
-            value={value?.toString() || ''}
-            onChange={(e) => onChange(e.target.value)}
-          />
+          <TextInput value={value?.toString() || ""} onChange={(e) => onChange(e.target.value)} />
         );
     }
   };
 
   return (
-    <AppShell
-      header={{ height: 60 }}
-      padding="md"
-    >
-      <Header height={60} p="xs">
-        <Flex justify="space-between" align="center" h="100%">
-          <Group>
-            <Button 
-              variant="subtle" 
-              leftIcon={<IconChevronLeft size={16} />}
-              onClick={onBack}
-            >
-              Back to Tables
-            </Button>
-            <Title order={3}>{table}</Title>
-          </Group>
-          <Group>
-            <Badge size="lg">
-              {rows.length} rows
-            </Badge>
-            <Button 
-              onClick={openNewRowDrawer}
-              leftIcon={<IconPlus size={16} />}
-            >
-              Add Row
-            </Button>
-          </Group>
-        </Flex>
-      </Header>
+    <AppShell header={{ height: 60 }} padding="md">
+      <Flex justify="space-between" align="center" h="100%">
+        <Group>
+          <Button variant="subtle" leftIcon={<IconChevronLeft size={16} />} onClick={onBack}>
+            Back to Tables
+          </Button>
+          <Title order={3}>{table}</Title>
+        </Group>
+        <Group>
+          <Badge size="lg">{rows.length} rows</Badge>
+          <Button onClick={openNewRowDrawer} leftIcon={<IconPlus size={16} />}>
+            Add Row
+          </Button>
+        </Group>
+      </Flex>
 
       <Container size="lg" py="md">
         <Tabs value={activeTab} onTabChange={setActiveTab}>
           <Tabs.List>
-            <Tabs.Tab value="rows" icon={<IconTable2 size={16} />}>
+            <Tabs.Tab value="rows" icon={<IconTable size={16} />}>
               Rows
             </Tabs.Tab>
             <Tabs.Tab value="snapshot" icon={<IconClock size={16} />}>
@@ -815,11 +819,7 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
                   <Stack align="center" spacing="sm">
                     <IconTable size={48} opacity={0.3} />
                     <Text c="dimmed">No rows yet. Add your first row to get started.</Text>
-                    <Button 
-                      mt="md" 
-                      onClick={openNewRowDrawer}
-                      leftIcon={<IconPlus size={16} />}
-                    >
+                    <Button mt="md" onClick={openNewRowDrawer} leftIcon={<IconPlus size={16} />}>
                       Add Row
                     </Button>
                   </Stack>
@@ -831,7 +831,7 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
                       <tr>
                         <th>ID</th>
                         <th>Timestamp</th>
-                        {columns.map(col => (
+                        {columns.map((col) => (
                           <th key={col.name}>{col.name}</th>
                         ))}
                         <th>Actions</th>
@@ -846,36 +846,36 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
                           <td>
                             <Text size="sm">{new Date(row.timestamp).toLocaleString()}</Text>
                           </td>
-                          {columns.map(col => (
+                          {columns.map((col) => (
                             <td key={col.name}>
-                              {col.dataType === 'object' || col.dataType === 'array' ? (
+                              {col.dataType === "object" || col.dataType === "array" ? (
                                 <Code block>{JSON.stringify(row.values[col.name], null, 2)}</Code>
-                              ) : col.dataType === 'boolean' ? (
+                              ) : col.dataType === "boolean" ? (
                                 row.values[col.name] ? (
-                                  <Badge color="green"><IconCheck size={14} />True</Badge>
+                                  <Badge color="green">
+                                    <IconCheck size={14} />
+                                    True
+                                  </Badge>
                                 ) : (
-                                  <Badge color="red"><IconX size={14} />False</Badge>
+                                  <Badge color="red">
+                                    <IconX size={14} />
+                                    False
+                                  </Badge>
                                 )
                               ) : (
-                                <Text>{String(row.values[col.name] || '')}</Text>
+                                <Text>{String(row.values[col.name] || "")}</Text>
                               )}
                             </td>
                           ))}
                           <td>
                             <Group spacing="xs">
                               <Tooltip label="Edit">
-                                <ActionIcon
-                                  color="blue"
-                                  onClick={() => startEditRow(row.id)}
-                                >
+                                <ActionIcon color="blue" onClick={() => startEditRow(row.id)}>
                                   <IconEdit size={16} />
                                 </ActionIcon>
                               </Tooltip>
                               <Tooltip label="Delete">
-                                <ActionIcon
-                                  color="red"
-                                  onClick={() => deleteRow(row.id)}
-                                >
+                                <ActionIcon color="red" onClick={() => deleteRow(row.id)}>
                                   <IconTrash size={16} />
                                 </ActionIcon>
                               </Tooltip>
@@ -903,26 +903,21 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
                   />
                 </Grid.Col>
                 <Grid.Col span={3}>
-                  <Button
-                    mt={24}
-                    onClick={applySnapshot}
-                    loading={loading}
-                    fullWidth
-                  >
+                  <Button mt={24} onClick={applySnapshot} loading={loading} fullWidth>
                     Load Snapshot
                   </Button>
                 </Grid.Col>
               </Grid>
-              
+
               <Divider my="md" label="Snapshot Results" labelPosition="center" />
-              
+
               {rows.length > 0 ? (
                 <Table striped highlightOnHover withBorder>
                   <thead>
                     <tr>
                       <th>ID</th>
                       <th>Timestamp</th>
-                      {columns.map(col => (
+                      {columns.map((col) => (
                         <th key={col.name}>{col.name}</th>
                       ))}
                     </tr>
@@ -936,12 +931,12 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
                         <td>
                           <Text size="sm">{new Date(row.timestamp).toLocaleString()}</Text>
                         </td>
-                        {columns.map(col => (
+                        {columns.map((col) => (
                           <td key={col.name}>
-                            {col.dataType === 'object' || col.dataType === 'array' ? (
+                            {col.dataType === "object" || col.dataType === "array" ? (
                               <Code block>{JSON.stringify(row.values[col.name], null, 2)}</Code>
                             ) : (
-                              <Text>{String(row.values[col.name] || '')}</Text>
+                              <Text>{String(row.values[col.name] || "")}</Text>
                             )}
                           </td>
                         ))}
@@ -965,7 +960,9 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
                     label="Start Time"
                     placeholder="Select start time"
                     value={historyRange.start}
-                    onChange={(date) => date && setHistoryRange(prev => ({ ...prev, start: date }))}
+                    onChange={(date) =>
+                      date && setHistoryRange((prev) => ({ ...prev, start: date }))
+                    }
                   />
                 </Grid.Col>
                 <Grid.Col span={4}>
@@ -973,33 +970,31 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
                     label="End Time"
                     placeholder="Select end time"
                     value={historyRange.end}
-                    onChange={(date) => date && setHistoryRange(prev => ({ ...prev, end: date }))}
+                    onChange={(date) => date && setHistoryRange((prev) => ({ ...prev, end: date }))}
                   />
                 </Grid.Col>
                 <Grid.Col span={4}>
-                  <Button
-                    mt={24}
-                    onClick={loadHistory}
-                    loading={loading}
-                    fullWidth
-                  >
+                  <Button mt={24} onClick={loadHistory} loading={loading} fullWidth>
                     Load History
                   </Button>
                 </Grid.Col>
               </Grid>
-              
+
               <Divider my="md" label="History Events" labelPosition="center" />
-              
+
               {historyEvents.length > 0 ? (
                 <Accordion>
                   {historyEvents.map((event) => (
-                    <Accordion.Item key={`${event.id}-${event.timestamp}`} value={`${event.id}-${event.timestamp}`}>
+                    <Accordion.Item
+                      key={`${event.id}-${event.timestamp}`}
+                      value={`${event.id}-${event.timestamp}`}
+                    >
                       <Accordion.Control>
                         <Group>
                           <Text fw={500}>{event.id}</Text>
                           <Badge>{new Date(event.timestamp).toLocaleString()}</Badge>
                           <Text c="dimmed" size="sm">
-                            {event.values ? 'Update' : 'Delete'}
+                            {event.values ? "Update" : "Delete"}
                           </Text>
                         </Group>
                       </Accordion.Control>
@@ -1048,26 +1043,25 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
             mb="md"
           />
 
-          <Title order={5} mb="md">Row Values</Title>
-          {columns.map(col => (
+          <Title order={5} mb="md">
+            Row Values
+          </Title>
+          {columns.map((col) => (
             <Box key={col.name} mb="md">
-              <Text fw={500} mb={5}>{col.name} <Badge>{col.dataType}</Badge></Text>
-              {renderInputForType(
-                col.name, 
-                col.dataType, 
-                newRowValues[col.name], 
-                (val) => setNewRowValues(prev => ({ ...prev, [col.name]: val }))
+              <Text fw={500} mb={5}>
+                {col.name} <Badge>{col.dataType}</Badge>
+              </Text>
+              {renderInputForType(col.name, col.dataType, newRowValues[col.name], (val) =>
+                setNewRowValues((prev) => ({ ...prev, [col.name]: val })),
               )}
             </Box>
           ))}
 
           <Group position="right" mt="xl">
-            <Button variant="subtle" onClick={closeNewRowDrawer}>Cancel</Button>
-            <Button 
-              onClick={addRow} 
-              disabled={!newRowId.trim()}
-              loading={loading}
-            >
+            <Button variant="subtle" onClick={closeNewRowDrawer}>
+              Cancel
+            </Button>
+            <Button onClick={addRow} disabled={!newRowId.trim()} loading={loading}>
               Create Row
             </Button>
           </Group>
@@ -1083,25 +1077,25 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
         size="lg"
       >
         <Paper p="md" withBorder>
-          <Title order={5} mb="md">Row Values</Title>
-          {columns.map(col => (
+          <Title order={5} mb="md">
+            Row Values
+          </Title>
+          {columns.map((col) => (
             <Box key={col.name} mb="md">
-              <Text fw={500} mb={5}>{col.name} <Badge>{col.dataType}</Badge></Text>
-              {renderInputForType(
-                col.name, 
-                col.dataType, 
-                newRowValues[col.name], 
-                (val) => setNewRowValues(prev => ({ ...prev, [col.name]: val }))
+              <Text fw={500} mb={5}>
+                {col.name} <Badge>{col.dataType}</Badge>
+              </Text>
+              {renderInputForType(col.name, col.dataType, newRowValues[col.name], (val) =>
+                setNewRowValues((prev) => ({ ...prev, [col.name]: val })),
               )}
             </Box>
           ))}
 
           <Group position="right" mt="xl">
-            <Button variant="subtle" onClick={closeEditRowDrawer}>Cancel</Button>
-            <Button 
-              onClick={() => updateRow(currentEditingRow, newRowValues)}
-              loading={loading}
-            >
+            <Button variant="subtle" onClick={closeEditRowDrawer}>
+              Cancel
+            </Button>
+            <Button onClick={() => updateRow(currentEditingRow, newRowValues)} loading={loading}>
               Update Row
             </Button>
           </Group>
