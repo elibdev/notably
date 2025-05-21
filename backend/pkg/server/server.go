@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"time"
@@ -128,6 +129,11 @@ func tableExists(ctx context.Context, store *db.StoreAdapter, userID, table stri
 	return false
 }
 
+func init() {
+	// Seed the random number generator for ID generation
+	rand.Seed(time.Now().UnixNano())
+}
+
 func (s *Server) registerRoutes() {
 	// Authentication endpoints (no auth required)
 	s.mux.HandleFunc("POST /auth/register", s.handleRegister)
@@ -249,7 +255,15 @@ func writeError(w http.ResponseWriter, status int, message string) {
 
 // newID generates a unique ID
 func newID() string {
-	return fmt.Sprintf("%d", time.Now().UTC().UnixNano())
+	// Create a more robust ID format (similar to ULID)
+	// Format: timestamp + random component
+	now := time.Now().UTC()
+	timestamp := now.Format("20060102150405.000")
+	randomPart := make([]byte, 8)
+	for i := range randomPart {
+		randomPart[i] = byte(rand.Intn(256))
+	}
+	return fmt.Sprintf("%s_%x", timestamp, randomPart)
 }
 
 // Auth handlers
@@ -563,17 +577,22 @@ func (s *Server) handleListTables(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	snap, err := store.GetSnapshot(r.Context(), time.Now().UTC())
+	// Query the user's table definitions directly instead of using snapshot
+	facts, err := store.QueryByField(r.Context(), user.ID, "", time.Time{}, time.Now().UTC())
 	if err != nil {
-		log.Printf("Failed to get tables for user %s: %v", user.ID, err)
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get tables: %v", err))
 		return
 	}
 
 	tables := []TableInfo{}
-	if entries, ok := snap[user.ID]; ok {
-		for name, fact := range entries {
-			tables = append(tables, TableInfo{Name: name, CreatedAt: fact.Timestamp})
+	for _, fact := range facts {
+		// Only include facts that are table definitions
+		if fact.Namespace == user.ID && fact.DataType == "table" {
+			tables = append(tables, TableInfo{
+				Name:      fact.FieldName,
+				CreatedAt: fact.Timestamp,
+				Columns:   fact.Columns,
+			})
 		}
 	}
 
@@ -621,7 +640,7 @@ func (s *Server) handleCreateRow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Auto-generate ID if not provided
+	// Always auto-generate ID if not provided
 	if req.ID == "" {
 		req.ID = newID()
 		log.Printf("Auto-generated row ID: %s", req.ID)

@@ -44,6 +44,32 @@ export AWS_REGION=us-west-2      # region is still required
 export AWS_ACCESS_KEY_ID=foo     # use dummy credentials
 export AWS_SECRET_ACCESS_KEY=bar
 
+## Testing
+
+Notably uses a DynamoDB emulator for testing instead of mocks.
+
+### Running Tests
+
+To run tests that interact with DynamoDB, start the emulator first:
+
+```bash
+docker run --name dynamodb-local -p 8000:8000 amazon/dynamodb-local
+```
+
+Then run tests:
+
+```bash
+go test ./...
+```
+
+Use the `-short` flag to skip tests requiring DynamoDB:
+
+```bash
+go test -short ./...
+```
+
+See the [Testing Guidelines](backend/TESTING.md) for more details on using the `testutil/dynamotest` package.
+
 ## Frontend
 
 To run the web frontend, navigate into the `frontend` directory and install dependencies:

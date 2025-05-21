@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -38,9 +39,17 @@ type Fact struct {
 	Columns []ColumnDefinition `json:"columns,omitempty"`
 }
 
+// dynamoDBAPI defines the interface for DynamoDB operations needed by Client
+type dynamoDBAPI interface {
+	CreateTable(ctx context.Context, params *dynamodb.CreateTableInput, optFns ...func(*dynamodb.Options)) (*dynamodb.CreateTableOutput, error)
+	PutItem(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error)
+	Query(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error)
+	DescribeTable(ctx context.Context, params *dynamodb.DescribeTableInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DescribeTableOutput, error)
+}
+
 // Client wraps DynamoDB operations for facts storage.
 type Client struct {
-	db        *dynamodb.Client
+	db        dynamoDBAPI
 	tableName string
 	userID    string
 }
@@ -49,6 +58,15 @@ type Client struct {
 func NewClient(cfg aws.Config, tableName, userID string) *Client {
 	return &Client{
 		db:        dynamodb.NewFromConfig(cfg),
+		tableName: tableName,
+		userID:    userID,
+	}
+}
+
+// NewClientWithDB creates a new Client with a custom DB implementation (useful for testing).
+func NewClientWithDB(db dynamoDBAPI, tableName, userID string) *Client {
+	return &Client{
+		db:        db,
 		tableName: tableName,
 		userID:    userID,
 	}
@@ -107,6 +125,21 @@ func (c *Client) PutFact(ctx context.Context, fact Fact) error {
 		return err
 	}
 	item["Value"] = av
+
+	// Store column definitions if present
+	if len(fact.Columns) > 0 {
+		log.Printf("Storing %d columns for fact %s.%s: %+v", len(fact.Columns), fact.Namespace, fact.FieldName, fact.Columns)
+		colAv, err := attributevalue.Marshal(fact.Columns)
+		if err != nil {
+			log.Printf("ERROR: Failed to marshal columns: %v", err)
+			return fmt.Errorf("failed to marshal columns: %w", err)
+		}
+		item["Columns"] = colAv
+		log.Printf("Successfully added column definitions to item")
+	} else if fact.DataType == "table" {
+		log.Printf("WARNING: Table fact %s.%s has no columns defined", fact.Namespace, fact.FieldName)
+	}
+
 	_, err = c.db.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String(c.tableName),
 		Item:      item,
@@ -198,14 +231,24 @@ func unmarshalFacts(items []map[string]types.AttributeValue) ([]Fact, error) {
 	facts := make([]Fact, 0, len(items))
 	for _, item := range items {
 		var raw struct {
-			SK        string      `dynamodbav:"SK"`
-			Namespace string      `dynamodbav:"Namespace"`
-			FieldName string      `dynamodbav:"FieldName"`
-			DataType  string      `dynamodbav:"DataType"`
-			Value     interface{} `dynamodbav:"Value"`
+			SK        string             `dynamodbav:"SK"`
+			Namespace string             `dynamodbav:"Namespace"`
+			FieldName string             `dynamodbav:"FieldName"`
+			DataType  string             `dynamodbav:"DataType"`
+			Value     interface{}        `dynamodbav:"Value"`
+			Columns   []ColumnDefinition `dynamodbav:"Columns,omitempty"`
 		}
 		if err := attributevalue.UnmarshalMap(item, &raw); err != nil {
-			return nil, err
+			log.Printf("ERROR: Failed to unmarshal item: %v", err)
+			return nil, fmt.Errorf("unmarshal dynamodb item: %w", err)
+		}
+
+		// Debug column information
+		if raw.DataType == "table" {
+			log.Printf("Unmarshalled table %s.%s with %d columns", raw.Namespace, raw.FieldName, len(raw.Columns))
+			for i, col := range raw.Columns {
+				log.Printf("  Column %d: %s (%s)", i, col.Name, col.DataType)
+			}
 		}
 		parts := strings.SplitN(raw.SK, "#", 2)
 		ts, err := time.Parse(time.RFC3339Nano, parts[0])
@@ -223,6 +266,7 @@ func unmarshalFacts(items []map[string]types.AttributeValue) ([]Fact, error) {
 			FieldName: raw.FieldName,
 			DataType:  raw.DataType,
 			Value:     raw.Value,
+			Columns:   raw.Columns,
 		})
 	}
 	return facts, nil

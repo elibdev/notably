@@ -355,8 +355,10 @@ function MainApp({ client, onLogout }: MainAppProps) {
 
   const handleCreateTable = async (values: { name: string; columns: ColumnDefinition[] }) => {
     setLoading(true);
+    console.log("Creating table with columns:", values.columns);
     try {
-      await client.createTable(values.name, values.columns);
+      const result = await client.createTable(values.name, values.columns);
+      console.log("Table creation result:", result);
       notifications.show({
         title: "Success",
         message: `Table "${values.name}" created successfully`,
@@ -366,6 +368,7 @@ function MainApp({ client, onLogout }: MainAppProps) {
       closeCreateModal();
       loadTables();
     } catch (error: unknown) {
+      console.error("Error creating table:", error);
       if (error instanceof Error) {
         notifications.show({
           title: "Error",
@@ -548,11 +551,39 @@ function TableDetail({ client }: MainAppProps) {
   useEffect(() => {
     async function loadTableInfo() {
       setLoading(true);
+      console.log("Loading table info for:", tableName);
       try {
         const res = await client.listTables();
+        console.log("All tables:", res.tables);
         const foundTable = res.tables.find((t) => t.name === tableName);
+        console.log("Found table:", foundTable);
+        
+        if (!foundTable) {
+          throw new Error(`Table ${tableName} not found`);
+        }
+        
+        // Ensure columns is always at least an empty array
+        if (!foundTable.columns) {
+          console.warn("No columns array found, initializing empty array");
+          foundTable.columns = [];
+        }
+        
         setTableInfo(foundTable);
+        
+        // Add debug message
+        if (foundTable.columns.length === 0) {
+          console.warn("No columns found for table:", tableName);
+          notifications.show({
+            title: "Table Structure Missing",
+            message: "This table doesn't have any columns defined. Please define columns for this table to add data.",
+            color: "yellow",
+          });
+        } else {
+          console.log(`Found ${foundTable.columns.length} columns for table ${tableName}:`, 
+            foundTable.columns.map(c => `${c.name} (${c.dataType})`).join(', '));
+        }
       } catch (error) {
+        console.error("Error loading table:", error);
         notifications.show({
           title: "Error",
           message: getErrorMessage(error),
@@ -601,7 +632,6 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
     useDisclosure(false);
   const [currentEditingRow, setCurrentEditingRow] = useState<string>("");
   const [newRowValues, setNewRowValues] = useState<Record<string, unknown>>({});
-  const [newRowId, setNewRowId] = useState("");
 
   const [snapshotAt, setSnapshotAt] = useState<Date | null>(null);
   const [historyRange, setHistoryRange] = useState({
@@ -611,12 +641,32 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
   const [historyEvents, setHistoryEvents] = useState<RowEvent[]>([]);
 
   // Memoize columns to prevent unnecessary re-renders
-  const columns = useMemo(() => tableInfo?.columns || [], [tableInfo?.columns]);
+  const columns = useMemo(() => {
+    // Ensure we always have an array, even if columns is undefined
+    const result = tableInfo?.columns || [];
+    console.log("Memoized columns:", result, "from tableInfo:", tableInfo);
+    return result;
+  }, [tableInfo]);
 
   // Create a form for new row with default values based on column definitions
   useEffect(() => {
+    console.log("TableView columns:", columns.length ? columns : "NO COLUMNS FOUND");
+    console.log("TableInfo:", tableInfo);
+    
+    if (!columns || columns.length === 0) {
+      console.warn("Cannot create form - no columns defined for table", table);
+      setNewRowValues({});
+      return;
+    }
+    
     const defaultValues: Record<string, unknown> = {};
     columns.forEach((col) => {
+      if (!col || !col.name || !col.dataType) {
+        console.error("Invalid column definition:", col);
+        return;
+      }
+      
+      console.log("Processing column:", col.name, col.dataType);
       switch (col.dataType) {
         case "string":
           defaultValues[col.name] = "";
@@ -640,8 +690,10 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
           defaultValues[col.name] = "";
       }
     });
+    
+    console.log("Default values created:", defaultValues);
     setNewRowValues(defaultValues);
-  }, [columns]);
+  }, [columns, tableInfo, table]);
 
   // Memoize loadRows to prevent recreation on every render
   const loadRows = useCallback(async () => {
@@ -717,21 +769,43 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
 
   const addRow = async () => {
     setLoading(true);
+    console.log("Adding row with values:", newRowValues);
+    console.log("Available columns:", columns);
+    
     try {
-      // Use provided ID or let the backend generate one
-      const rowId = newRowId.trim()
-        ? newRowId
-        : `row_${Math.random().toString(36).substring(2, 11)}`;
-      await client.createRow(table, rowId, newRowValues);
+      if (!columns || columns.length === 0) {
+        throw new Error("Cannot add row: No columns defined for this table");
+      }
+      
+      if (Object.keys(newRowValues).length === 0) {
+        throw new Error("Cannot add row with empty values");
+      }
+      
+      // Validate all required values are present
+      for (const col of columns) {
+        if (!Object.prototype.hasOwnProperty.call(newRowValues, col.name)) {
+          console.warn(`Missing value for column ${col.name}, setting default value`);
+          // Set default value based on type
+          if (col.dataType === 'string') newRowValues[col.name] = '';
+          else if (col.dataType === 'number') newRowValues[col.name] = 0;
+          else if (col.dataType === 'boolean') newRowValues[col.name] = false;
+          else if (col.dataType === 'object') newRowValues[col.name] = {};
+          else if (col.dataType === 'array') newRowValues[col.name] = [];
+        }
+      }
+      
+      // Let the backend auto-generate the ID
+      const result = await client.createRow(table, undefined, newRowValues);
+      console.log("Row creation result:", result);
       closeNewRowDrawer();
-      setNewRowId("");
       loadRows();
       notifications.show({
         title: "Row added",
-        message: `Added row with ID ${rowId}`,
+        message: "Row added successfully",
         color: "green",
       });
     } catch (error: unknown) {
+      console.error("Error adding row:", error);
       if (error instanceof Error) {
         notifications.show({
           title: "Error adding row",
@@ -814,6 +888,8 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
             value={value || ""}
             onChange={(e) => onChange(e.target.value)}
             placeholder={`Enter ${columnName}`}
+            size="sm"
+            style={{ width: '100%' }}
           />
         );
       case "number":
@@ -823,6 +899,8 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
             value={value?.toString() || "0"}
             onChange={(e) => onChange(parseFloat(e.target.value))}
             placeholder={`Enter ${columnName}`}
+            size="sm"
+            style={{ width: '100%' }}
           />
         );
       case "boolean":
@@ -834,6 +912,8 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
               { value: "true", label: "True" },
               { value: "false", label: "False" },
             ]}
+            size="sm"
+            style={{ width: '100%' }}
           />
         );
       case "datetime":
@@ -841,6 +921,8 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
           <DateTimePicker
             value={value ? new Date(value) : new Date()}
             onChange={(date) => onChange(date?.toISOString())}
+            size="sm"
+            style={{ width: '100%' }}
           />
         );
       case "object":
@@ -859,11 +941,17 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
             formatOnBlur
             autosize
             minRows={4}
+            style={{ width: '100%', gridColumn: '1 / -1' }}
           />
         );
       default:
         return (
-          <TextInput value={value?.toString() || ""} onChange={(e) => onChange(e.target.value)} />
+          <TextInput 
+            value={value?.toString() || ""} 
+            onChange={(e) => onChange(e.target.value)}
+            size="sm"
+            style={{ width: '100%' }}
+          />
         );
     }
   };
@@ -913,57 +1001,59 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
                 </Center>
               ) : (
                 <ScrollArea>
-                  <Table striped highlightOnHover withborder="true">
+                  <Table striped highlightOnHover withBorder>
                     <thead>
-                      <tr>
-                        <th>ID</th>
-                        <th>Timestamp</th>
+                      <tr style={{ backgroundColor: '#f1f3f5' }}>
+                        <th style={{ padding: '12px 8px' }}>ID</th>
+                        <th style={{ padding: '12px 8px' }}>Timestamp</th>
                         {columns.map((col) => (
-                          <th key={col.name}>{col.name}</th>
+                          <th key={col.name} style={{ padding: '12px 8px' }}>{col.name}</th>
                         ))}
-                        <th>Actions</th>
+                        <th style={{ padding: '12px 8px' }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {rows.map((row) => (
                         <tr key={row.id}>
-                          <td>
-                            <Text fw={500}>{row.id}</Text>
+                          <td style={{ padding: '10px 8px' }}>
+                            <Text fw={500} size="sm">{row.id}</Text>
                           </td>
-                          <td>
-                            <Text size="sm">{new Date(row.timestamp).toLocaleString()}</Text>
+                          <td style={{ padding: '10px 8px' }}>
+                            <Text size="xs" c="dimmed">{new Date(row.timestamp).toLocaleString()}</Text>
                           </td>
                           {columns.map((col) => (
-                            <td key={col.name}>
+                            <td key={col.name} style={{ padding: '10px 8px' }}>
                               {col.dataType === "object" || col.dataType === "array" ? (
-                                <Code block>{JSON.stringify(row.values[col.name], null, 2)}</Code>
+                                <Code block style={{ maxHeight: '120px', overflow: 'auto' }}>
+                                  {JSON.stringify(row.values[col.name], null, 2)}
+                                </Code>
                               ) : col.dataType === "boolean" ? (
                                 row.values[col.name] ? (
-                                  <Badge color="green">
-                                    <IconCheck size={14} />
+                                  <Badge color="green" size="sm">
+                                    <IconCheck size={12} style={{ marginRight: 4 }} />
                                     True
                                   </Badge>
                                 ) : (
-                                  <Badge color="red">
-                                    <IconX size={14} />
+                                  <Badge color="red" size="sm">
+                                    <IconX size={12} style={{ marginRight: 4 }} />
                                     False
                                   </Badge>
                                 )
                               ) : (
-                                <Text>{String(row.values[col.name] || "")}</Text>
+                                <Text size="sm">{String(row.values[col.name] || "")}</Text>
                               )}
                             </td>
                           ))}
-                          <td>
+                          <td style={{ padding: '10px 8px' }}>
                             <Group spacing="xs">
                               <Tooltip label="Edit">
-                                <ActionIcon color="blue" onClick={() => startEditRow(row.id)}>
-                                  <IconEdit size={16} />
+                                <ActionIcon color="blue" onClick={() => startEditRow(row.id)} size="sm">
+                                  <IconEdit size={14} />
                                 </ActionIcon>
                               </Tooltip>
                               <Tooltip label="Delete">
-                                <ActionIcon color="red" onClick={() => deleteRow(row.id)}>
-                                  <IconTrash size={16} />
+                                <ActionIcon color="red" onClick={() => deleteRow(row.id)} size="sm">
+                                  <IconTrash size={14} />
                                 </ActionIcon>
                               </Tooltip>
                             </Group>
@@ -1119,35 +1209,68 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
         position="right"
         size="lg"
       >
-        <Paper p="md" withborder="true">
-          <TextInput
-            label="Row ID (optional)"
-            description="Unique identifier for this row - will be auto-generated if left empty"
-            placeholder="Enter row ID or leave empty for auto-generation"
-            value={newRowId}
-            onChange={(e) => setNewRowId(e.target.value)}
-            mb="md"
-          />
-
-          <Title order={5} mb="md">
-            Row Values
+        <Paper p="md" withBorder>
+          <Title order={5} mb="lg">
+            Enter Row Data
           </Title>
-          {columns.map((col) => (
-            <Box key={col.name} mb="md">
-              <Text fw={500} mb={5}>
-                {col.name} <Badge>{col.dataType}</Badge>
-              </Text>
-              {renderInputForType(col.name, col.dataType, newRowValues[col.name], (val) =>
-                setNewRowValues((prev) => ({ ...prev, [col.name]: val })),
-              )}
-            </Box>
-          ))}
+          
+          {!columns || columns.length === 0 ? (
+            <Paper withBorder p="md" mb="md" bg="yellow.0">
+              <Text fw={500}>No columns defined for this table.</Text>
+              <Text mt="md">Before you can add data, you need to define the table structure by specifying columns.</Text>
+              <Button 
+                mt="lg" 
+                color="blue" 
+                onClick={() => {
+                  navigate("/tables");
+                  notifications.show({
+                    title: "Table Structure Required",
+                    message: "Please go to the table list, then click 'Create Table' with the same name and define columns.",
+                    color: "blue"
+                  });
+                }}
+              >
+                Go Back to Tables List
+              </Button>
+              <Text size="sm" mt="xl" c="dimmed">Debug info: {JSON.stringify({
+                tableName: table,
+                tableInfo: tableInfo ? {
+                  name: tableInfo.name,
+                  hasColumns: !!tableInfo.columns,
+                  columnsLength: tableInfo.columns?.length || 0
+                } : null,
+                columnsArray: columns
+              }, null, 2)}</Text>
+            </Paper>
+          ) : (
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
+              gap: '1rem',
+              marginBottom: '1.5rem'
+            }}>
+              {columns.map((col) => (
+                <div key={col.name} style={{ 
+                  display: 'flex',
+                  flexDirection: 'column',
+                  marginBottom: col.dataType === 'object' || col.dataType === 'array' ? '2rem' : '0.5rem'
+                }}>
+                  <Text fw={500} mb={5} size="sm">
+                    {col.name} <Badge size="xs">{col.dataType}</Badge>
+                  </Text>
+                  {renderInputForType(col.name, col.dataType, newRowValues[col.name], (val) =>
+                    setNewRowValues((prev) => ({ ...prev, [col.name]: val })),
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
 
           <Group position="right" mt="xl">
             <Button variant="subtle" onClick={closeNewRowDrawer}>
               Cancel
             </Button>
-            <Button onClick={addRow} disabled={!newRowId.trim()} loading={loading}>
+            <Button onClick={addRow} loading={loading}>
               Create Row
             </Button>
           </Group>
@@ -1162,20 +1285,35 @@ function TableView({ table, client, onBack, tableInfo }: TableViewProps) {
         position="right"
         size="lg"
       >
-        <Paper p="md" withborder="true">
-          <Title order={5} mb="md">
-            Row Values
+        <Paper p="md" withBorder>
+          <Title order={5} mb="lg">
+            Edit Row Data
           </Title>
-          {columns.map((col) => (
-            <Box key={col.name} mb="md">
-              <Text fw={500} mb={5}>
-                {col.name} <Badge>{col.dataType}</Badge>
-              </Text>
-              {renderInputForType(col.name, col.dataType, newRowValues[col.name], (val) =>
-                setNewRowValues((prev) => ({ ...prev, [col.name]: val })),
-              )}
-            </Box>
-          ))}
+          
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
+            gap: '1rem',
+            marginBottom: '1.5rem'
+          }}>
+            {columns.map((col) => (
+              <div key={col.name} style={{ 
+                display: 'flex',
+                flexDirection: 'column',
+                marginBottom: col.dataType === 'object' || col.dataType === 'array' ? '2rem' : '0.5rem'
+              }}>
+                <Text fw={500} mb={5} size="sm">
+                  {col.name} <Badge size="xs">{col.dataType}</Badge>
+                </Text>
+                {renderInputForType(
+                  col.name,
+                  col.dataType,
+                  newRowValues[col.name],
+                  (val) => setNewRowValues((prev) => ({ ...prev, [col.name]: val })),
+                )}
+              </div>
+            ))}
+          </div>
 
           <Group position="right" mt="xl">
             <Button variant="subtle" onClick={closeEditRowDrawer}>

@@ -107,16 +107,26 @@ export class ApiClient {
       headers: this.headers(),
     });
     console.log(`Tables list response status: ${res.status}`);
-    return handleResponse(res);
+    const data = await handleResponse(res);
+    // Log column information for each table
+    console.log("Tables with columns:", data.tables.map(t => ({
+      name: t.name, 
+      columnsCount: t.columns?.length || 0,
+      columns: t.columns
+    })));
+    return data;
   }
 
   async createTable(name: string, columns?: ColumnDefinition[]): Promise<TableInfo> {
+    console.log("Creating table with columns:", columns);
     const res = await fetch("/api/tables", {
       method: "POST",
       headers: this.headers(),
       body: JSON.stringify({ name, columns }),
     });
-    return handleResponse(res);
+    const data = await handleResponse(res);
+    console.log("Table creation response:", data);
+    return data;
   }
 
   async listRows(table: string): Promise<{ rows: RowData[] }> {
@@ -135,6 +145,7 @@ export class ApiClient {
   }
 
   async createRow(table: string, id?: string, values: Record<string, unknown>): Promise<RowData> {
+    // If ID is undefined or empty, just send values and let backend generate the ID
     const payload = id && id.trim() ? { id, values } : { values };
     const res = await fetch(`/api/tables/${encodeURIComponent(table)}/rows`, {
       method: "POST",
@@ -145,6 +156,9 @@ export class ApiClient {
   }
 
   async updateRow(table: string, id: string, values: Record<string, unknown>): Promise<RowData> {
+    if (!id) {
+      throw new Error("Row ID is required for updating a row");
+    }
     const res = await fetch(
       `/api/tables/${encodeURIComponent(table)}/rows/${encodeURIComponent(id)}`,
       {
@@ -157,6 +171,9 @@ export class ApiClient {
   }
 
   async deleteRow(table: string, id: string): Promise<void> {
+    if (!id) {
+      throw new Error("Row ID is required for deleting a row");
+    }
     const res = await fetch(
       `/api/tables/${encodeURIComponent(table)}/rows/${encodeURIComponent(id)}`,
       { method: "DELETE", headers: this.headers() },
