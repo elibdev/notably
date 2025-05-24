@@ -205,6 +205,21 @@ func (s *Server) Stop(ctx context.Context) error {
 	return nil
 }
 
+// Handler returns the HTTP handler for the server with CORS middleware
+func (s *Server) Handler() http.Handler {
+	// Create a CORS middleware
+	c := cors.New(cors.Options{
+		AllowedOrigins: []string{"http://localhost:3000"}, // Add your frontend URL
+		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders: []string{"Content-Type", "Authorization"},
+		// Enable Debugging for testing, consider disabling in production
+		Debug: true,
+	})
+
+	// Use the middleware
+	return c.Handler(s.mux)
+}
+
 // Helper methods
 
 // getStoreForUser returns a store adapter for the given user ID
@@ -577,8 +592,8 @@ func (s *Server) handleListTables(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Query the user's table definitions directly instead of using snapshot
-	facts, err := store.QueryByField(r.Context(), user.ID, "", time.Time{}, time.Now().UTC())
+	// Query all facts for the user and filter for table definitions
+	facts, err := store.QueryByTimeRange(r.Context(), time.Time{}, time.Now().UTC())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get tables: %v", err))
 		return

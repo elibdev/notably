@@ -19,16 +19,23 @@ const (
 	DataTypeJSON    DataType = "json"
 )
 
+// ColumnDefinition represents a column in a table with its type
+type ColumnDefinition struct {
+	Name     string `json:"name"`
+	DataType string `json:"dataType"`
+}
+
 // Fact represents a single piece of data with versioning
 type Fact struct {
-	ID        string    `json:"id"`
-	Timestamp time.Time `json:"timestamp"`
-	Namespace string    `json:"namespace"`
-	FieldName string    `json:"fieldName"`
-	DataType  DataType  `json:"dataType"`
-	Value     string    `json:"value"`
-	UserID    string    `json:"userId"`
-	IsDeleted bool      `json:"isDeleted"`
+	ID        string             `json:"id"`
+	Timestamp time.Time          `json:"timestamp"`
+	Namespace string             `json:"namespace"`
+	FieldName string             `json:"fieldName"`
+	DataType  DataType           `json:"dataType"`
+	Value     string             `json:"value"`
+	UserID    string             `json:"userId"`
+	IsDeleted bool               `json:"isDeleted"`
+	Columns   []ColumnDefinition `json:"columns,omitempty"`
 }
 
 // QueryOptions provides filtering and pagination options for queries

@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -105,26 +106,82 @@ func (a *StoreAdapter) GetSnapshot(ctx context.Context, at time.Time) (map[strin
 
 // convertFromLegacyFact converts a dynamo.Fact to a db.Fact
 func convertFromLegacyFact(legacy dynamo.Fact) Fact {
+	// Convert value to string safely
+	var valueStr string
+	if legacy.Value != nil {
+		// For JSON data types, marshal to proper JSON
+		if legacy.DataType == "json" {
+			jsonBytes, err := json.Marshal(legacy.Value)
+			if err != nil {
+				// Fall back to string representation if marshaling fails
+				valueStr = fmt.Sprintf("%v", legacy.Value)
+			} else {
+				valueStr = string(jsonBytes)
+			}
+		} else {
+			valueStr = fmt.Sprintf("%v", legacy.Value)
+		}
+	}
+
+	// Convert columns
+	var columns []ColumnDefinition
+	if len(legacy.Columns) > 0 {
+		columns = make([]ColumnDefinition, len(legacy.Columns))
+		for i, col := range legacy.Columns {
+			columns[i] = ColumnDefinition{
+				Name:     col.Name,
+				DataType: col.DataType,
+			}
+		}
+	}
+
 	return Fact{
 		ID:        legacy.ID,
 		Timestamp: legacy.Timestamp,
 		Namespace: legacy.Namespace,
 		FieldName: legacy.FieldName,
 		DataType:  DataType(legacy.DataType),
-		Value:     legacy.Value.(string),
-		// Not setting IsDeleted as it's not in the legacy type
+		Value:     valueStr,
+		Columns:   columns,
+		IsDeleted: legacy.DataType == "deleted",
 	}
 }
 
 // convertToLegacyFact converts a db.Fact to a dynamo.Fact
 func convertToLegacyFact(fact Fact) dynamo.Fact {
+	// Convert columns
+	var columns []dynamo.ColumnDefinition
+	if len(fact.Columns) > 0 {
+		columns = make([]dynamo.ColumnDefinition, len(fact.Columns))
+		for i, col := range fact.Columns {
+			columns[i] = dynamo.ColumnDefinition{
+				Name:     col.Name,
+				DataType: col.DataType,
+			}
+		}
+	}
+
+	// Convert value back to proper type for JSON data
+	var value interface{}
+	if string(fact.DataType) == "json" && fact.Value != "" {
+		// Parse JSON string back to interface{}
+		err := json.Unmarshal([]byte(fact.Value), &value)
+		if err != nil {
+			// Fall back to string value if parsing fails
+			value = fact.Value
+		}
+	} else {
+		value = fact.Value
+	}
+
 	return dynamo.Fact{
 		ID:        fact.ID,
 		Timestamp: fact.Timestamp,
 		Namespace: fact.Namespace,
 		FieldName: fact.FieldName,
 		DataType:  string(fact.DataType),
-		Value:     fact.Value,
+		Value:     value,
+		Columns:   columns,
 	}
 }
 
@@ -174,14 +231,7 @@ func (a *LegacyClientAdapter) PutFact(ctx context.Context, fact *Fact) error {
 	}
 
 	// Convert to legacy fact type
-	legacyFact := dynamo.Fact{
-		ID:        fact.ID,
-		Timestamp: fact.Timestamp,
-		Namespace: fact.Namespace,
-		FieldName: fact.FieldName,
-		DataType:  string(fact.DataType),
-		Value:     fact.Value,
-	}
+	legacyFact := convertToLegacyFact(*fact)
 
 	return a.client.PutFact(ctx, legacyFact)
 }
@@ -222,22 +272,9 @@ func (a *LegacyClientAdapter) GetFact(ctx context.Context, id string) (*Fact, er
 	}
 
 	// Convert to our Fact type
-	result := &Fact{
-		ID:        latestFact.ID,
-		Timestamp: latestFact.Timestamp,
-		Namespace: latestFact.Namespace,
-		FieldName: latestFact.FieldName,
-		DataType:  DataType(latestFact.DataType),
-		// Note: This is lossy if Value is not a string
-		Value: fmt.Sprintf("%v", latestFact.Value),
-	}
+	result := convertFromLegacyFact(*latestFact)
 
-	// Check if this is a "deleted" marker
-	if latestFact.DataType == "deleted" {
-		result.IsDeleted = true
-	}
-
-	return result, nil
+	return &result, nil
 }
 
 func (a *LegacyClientAdapter) DeleteFact(ctx context.Context, id string) error {
@@ -287,15 +324,7 @@ func (a *LegacyClientAdapter) QueryByField(ctx context.Context, namespace, field
 	// Convert to our Fact type
 	result := make([]Fact, len(facts))
 	for i, f := range facts {
-		result[i] = Fact{
-			ID:        f.ID,
-			Timestamp: f.Timestamp,
-			Namespace: f.Namespace,
-			FieldName: f.FieldName,
-			DataType:  DataType(f.DataType),
-			Value:     fmt.Sprintf("%v", f.Value),
-			IsDeleted: f.DataType == "deleted",
-		}
+		result[i] = convertFromLegacyFact(f)
 	}
 
 	// Sort if needed
@@ -338,15 +367,7 @@ func (a *LegacyClientAdapter) QueryByTimeRange(ctx context.Context, opts QueryOp
 	// Convert to our Fact type
 	result := make([]Fact, len(facts))
 	for i, f := range facts {
-		result[i] = Fact{
-			ID:        f.ID,
-			Timestamp: f.Timestamp,
-			Namespace: f.Namespace,
-			FieldName: f.FieldName,
-			DataType:  DataType(f.DataType),
-			Value:     fmt.Sprintf("%v", f.Value),
-			IsDeleted: f.DataType == "deleted",
-		}
+		result[i] = convertFromLegacyFact(f)
 	}
 
 	// Sort if needed

@@ -1,0 +1,1544 @@
+{
+  "config": {
+    "configFile": "/Users/eli/projects/notably/frontend/playwright.config.ts",
+    "rootDir": "/Users/eli/projects/notably/frontend/e2e",
+    "forbidOnly": false,
+    "fullyParallel": true,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {},
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "html",
+        {
+          "outputFolder": "playwright-report"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results.json"
+        }
+      ],
+      [
+        "list",
+        null
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "/Users/eli/projects/notably/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/Users/eli/projects/notably/frontend/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "shard": null,
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.52.0",
+    "workers": 5,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "auth.spec.ts",
+      "file": "auth.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Authentication",
+          "file": "auth.spec.ts",
+          "line": 4,
+          "column": 6,
+          "specs": [],
+          "suites": [
+            {
+              "title": "User Registration",
+              "file": "auth.spec.ts",
+              "line": 11,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "should register a new user successfully",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "d748ac400d08b85935ef-5e0c2eed59a15ce69aad",
+                  "file": "auth.spec.ts",
+                  "line": 12,
+                  "column": 5
+                },
+                {
+                  "title": "should show error for duplicate username",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "d748ac400d08b85935ef-216ec6141f596a73869e",
+                  "file": "auth.spec.ts",
+                  "line": 38,
+                  "column": 5
+                },
+                {
+                  "title": "should show error for invalid email format",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "d748ac400d08b85935ef-f623f1fe37dbe7844e03",
+                  "file": "auth.spec.ts",
+                  "line": 59,
+                  "column": 5
+                },
+                {
+                  "title": "should show error for empty fields",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "d748ac400d08b85935ef-a923521951ecfb8c8160",
+                  "file": "auth.spec.ts",
+                  "line": 75,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "User Login",
+              "file": "auth.spec.ts",
+              "line": 88,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "should login with valid credentials",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "d748ac400d08b85935ef-4f79908a6454e3a38693",
+                  "file": "auth.spec.ts",
+                  "line": 89,
+                  "column": 5
+                },
+                {
+                  "title": "should show error for invalid credentials",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "d748ac400d08b85935ef-462266e72aff07982823",
+                  "file": "auth.spec.ts",
+                  "line": 104,
+                  "column": 5
+                },
+                {
+                  "title": "should show error for empty login fields",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "d748ac400d08b85935ef-3f95694c398a53af5617",
+                  "file": "auth.spec.ts",
+                  "line": 122,
+                  "column": 5
+                },
+                {
+                  "title": "should switch between login and register tabs",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "d748ac400d08b85935ef-65f2f748df34f542b2cf",
+                  "file": "auth.spec.ts",
+                  "line": 133,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "Session Management",
+              "file": "auth.spec.ts",
+              "line": 149,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "should logout successfully",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "d748ac400d08b85935ef-265b7188f6b1356efcc4",
+                  "file": "auth.spec.ts",
+                  "line": 150,
+                  "column": 5
+                },
+                {
+                  "title": "should persist session across page reloads",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "d748ac400d08b85935ef-28355ebb15aa40c3652e",
+                  "file": "auth.spec.ts",
+                  "line": 166,
+                  "column": 5
+                },
+                {
+                  "title": "should redirect to login when accessing protected routes without auth",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "d748ac400d08b85935ef-22ebc1b136ed76ac5b18",
+                  "file": "auth.spec.ts",
+                  "line": 182,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "API Key Management",
+              "file": "auth.spec.ts",
+              "line": 191,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "should receive API key after registration",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "d748ac400d08b85935ef-14d36d0a7b265bbe975a",
+                  "file": "auth.spec.ts",
+                  "line": 192,
+                  "column": 5
+                },
+                {
+                  "title": "should be able to make authenticated API calls",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "d748ac400d08b85935ef-b6769daa1fa1b6ed0bbf",
+                  "file": "auth.spec.ts",
+                  "line": 204,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "Error Handling",
+              "file": "auth.spec.ts",
+              "line": 220,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "should handle network errors gracefully",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "d748ac400d08b85935ef-4cafd56a010c00588fd9",
+                  "file": "auth.spec.ts",
+                  "line": 221,
+                  "column": 5
+                },
+                {
+                  "title": "should handle server errors gracefully",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "d748ac400d08b85935ef-136a0bdc2d9b2d1c1217",
+                  "file": "auth.spec.ts",
+                  "line": 245,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "Form Validation",
+              "file": "auth.spec.ts",
+              "line": 272,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "should validate password strength",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "d748ac400d08b85935ef-60a852bfe719879e576d",
+                  "file": "auth.spec.ts",
+                  "line": 273,
+                  "column": 5
+                },
+                {
+                  "title": "should validate username format",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "d748ac400d08b85935ef-5dff97dd4d8a2a03d5f5",
+                  "file": "auth.spec.ts",
+                  "line": 289,
+                  "column": 5
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "history-snapshot.spec.ts",
+      "file": "history-snapshot.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "History and Snapshot Features",
+          "file": "history-snapshot.spec.ts",
+          "line": 4,
+          "column": 6,
+          "specs": [],
+          "suites": [
+            {
+              "title": "Snapshot Functionality",
+              "file": "history-snapshot.spec.ts",
+              "line": 11,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "should create and view table snapshots",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "d3c094990796d1ee2256-46629b95bed9a11071e5",
+                  "file": "history-snapshot.spec.ts",
+                  "line": 12,
+                  "column": 5
+                },
+                {
+                  "title": "should view historical snapshots at specific times",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "d3c094990796d1ee2256-22e368cbee02645209e3",
+                  "file": "history-snapshot.spec.ts",
+                  "line": 38,
+                  "column": 5
+                },
+                {
+                  "title": "should handle snapshot errors gracefully",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "d3c094990796d1ee2256-5c14da63f737abf39402",
+                  "file": "history-snapshot.spec.ts",
+                  "line": 80,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "History Tracking",
+              "file": "history-snapshot.spec.ts",
+              "line": 105,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "should track row creation events",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "d3c094990796d1ee2256-5c67e2451387d125c324",
+                  "file": "history-snapshot.spec.ts",
+                  "line": 106,
+                  "column": 5
+                },
+                {
+                  "title": "should track row modification events",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "d3c094990796d1ee2256-8683f7e461a76649a4c9",
+                  "file": "history-snapshot.spec.ts",
+                  "line": 144,
+                  "column": 5
+                },
+                {
+                  "title": "should track row deletion events",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "d3c094990796d1ee2256-c7a6ef33b4009847ffb4",
+                  "file": "history-snapshot.spec.ts",
+                  "line": 185,
+                  "column": 5
+                },
+                {
+                  "title": "should handle complex history queries",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "d3c094990796d1ee2256-403590d54a2c18f082de",
+                  "file": "history-snapshot.spec.ts",
+                  "line": 225,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "Time-based Data Recovery",
+              "file": "history-snapshot.spec.ts",
+              "line": 288,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "should restore data from historical snapshot",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "d3c094990796d1ee2256-9df714981ae6ede831e5",
+                  "file": "history-snapshot.spec.ts",
+                  "line": 289,
+                  "column": 5
+                },
+                {
+                  "title": "should handle data consistency across time",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "d3c094990796d1ee2256-01c33261945034d4ca0a",
+                  "file": "history-snapshot.spec.ts",
+                  "line": 327,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "Performance and Edge Cases",
+              "file": "history-snapshot.spec.ts",
+              "line": 380,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "should handle large history ranges efficiently",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "d3c094990796d1ee2256-2963a2169a98f48b5cbc",
+                  "file": "history-snapshot.spec.ts",
+                  "line": 381,
+                  "column": 5
+                },
+                {
+                  "title": "should handle invalid time ranges",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "d3c094990796d1ee2256-15d988f23908a018bcba",
+                  "file": "history-snapshot.spec.ts",
+                  "line": 412,
+                  "column": 5
+                },
+                {
+                  "title": "should handle future timestamps gracefully",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "d3c094990796d1ee2256-4904ad061b8b63225744",
+                  "file": "history-snapshot.spec.ts",
+                  "line": 439,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "Integration with CRUD Operations",
+              "file": "history-snapshot.spec.ts",
+              "line": 466,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "should maintain history integrity during complex operations",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "d3c094990796d1ee2256-9e2bf100d5a092c9190b",
+                  "file": "history-snapshot.spec.ts",
+                  "line": 467,
+                  "column": 5
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "regression.spec.ts",
+      "file": "regression.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Regression Tests - Row Creation Fixes",
+          "file": "regression.spec.ts",
+          "line": 4,
+          "column": 6,
+          "specs": [],
+          "suites": [
+            {
+              "title": "Row Creation Bug Fixes",
+              "file": "regression.spec.ts",
+              "line": 11,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "should create row without ID when ID field is empty",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "9dc370239c4a30f174fb-c12187ff5ea765cb6afa",
+                  "file": "regression.spec.ts",
+                  "line": 12,
+                  "column": 5
+                },
+                {
+                  "title": "should create row when ID field contains only whitespace",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "9dc370239c4a30f174fb-feb71384bb314e51cc44",
+                  "file": "regression.spec.ts",
+                  "line": 52,
+                  "column": 5
+                },
+                {
+                  "title": "should handle undefined/null ID values correctly",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "9dc370239c4a30f174fb-41882342c34117f6719b",
+                  "file": "regression.spec.ts",
+                  "line": 85,
+                  "column": 5
+                },
+                {
+                  "title": "should properly reset form state between row creations",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "9dc370239c4a30f174fb-a4d1040373a919c06af8",
+                  "file": "regression.spec.ts",
+                  "line": 132,
+                  "column": 5
+                },
+                {
+                  "title": "should handle rapid successive row creations",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "9dc370239c4a30f174fb-e585e0b27f3ba50f34ec",
+                  "file": "regression.spec.ts",
+                  "line": 182,
+                  "column": 5
+                },
+                {
+                  "title": "should handle form cancellation without side effects",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "9dc370239c4a30f174fb-46ec5910877d8e0f5b0e",
+                  "file": "regression.spec.ts",
+                  "line": 215,
+                  "column": 5
+                },
+                {
+                  "title": "should handle network interruption during row creation",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "9dc370239c4a30f174fb-e51925d5b6b0e344aa4e",
+                  "file": "regression.spec.ts",
+                  "line": 251,
+                  "column": 5
+                },
+                {
+                  "title": "should preserve form data during temporary UI state changes",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "9dc370239c4a30f174fb-f41fe803a272ff5a08e9",
+                  "file": "regression.spec.ts",
+                  "line": 294,
+                  "column": 5
+                },
+                {
+                  "title": "should handle edge case column values during row creation",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "9dc370239c4a30f174fb-1935ef8c100528b0978a",
+                  "file": "regression.spec.ts",
+                  "line": 329,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "API Payload Validation",
+              "file": "regression.spec.ts",
+              "line": 386,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "should send correct payload structure for row creation",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "9dc370239c4a30f174fb-ae5fd6ac9f2f2f403f88",
+                  "file": "regression.spec.ts",
+                  "line": 387,
+                  "column": 5
+                },
+                {
+                  "title": "should send correct payload when ID is provided",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "9dc370239c4a30f174fb-a731407955fe1e966c53",
+                  "file": "regression.spec.ts",
+                  "line": 430,
+                  "column": 5
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "table-operations.spec.ts",
+      "file": "table-operations.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Table and Row Operations",
+          "file": "table-operations.spec.ts",
+          "line": 4,
+          "column": 6,
+          "specs": [],
+          "suites": [
+            {
+              "title": "Table Management",
+              "file": "table-operations.spec.ts",
+              "line": 11,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "should create a table without columns",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "2d46daa4b8414b2c6818-51d1750f06cecb683546",
+                  "file": "table-operations.spec.ts",
+                  "line": 12,
+                  "column": 5
+                },
+                {
+                  "title": "should create a table with predefined columns",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "2d46daa4b8414b2c6818-38178a647e4ce313977e",
+                  "file": "table-operations.spec.ts",
+                  "line": 23,
+                  "column": 5
+                },
+                {
+                  "title": "should handle table creation errors gracefully",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "2d46daa4b8414b2c6818-9baa8defd023fbb0c231",
+                  "file": "table-operations.spec.ts",
+                  "line": 37,
+                  "column": 5
+                },
+                {
+                  "title": "should handle duplicate table names",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "2d46daa4b8414b2c6818-8da617c86861b887a256",
+                  "file": "table-operations.spec.ts",
+                  "line": 53,
+                  "column": 5
+                },
+                {
+                  "title": "should navigate to table view when table is selected",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "2d46daa4b8414b2c6818-fd58fb8ed2ed335dafbb",
+                  "file": "table-operations.spec.ts",
+                  "line": 72,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "Row Operations - Basic CRUD",
+              "file": "table-operations.spec.ts",
+              "line": 86,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "should create a row without specifying ID",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "2d46daa4b8414b2c6818-1e5b28a7f76b35ccfd7c",
+                  "file": "table-operations.spec.ts",
+                  "line": 87,
+                  "column": 5
+                },
+                {
+                  "title": "should create a row with custom ID",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "2d46daa4b8414b2c6818-02cf10275df5af8a18e0",
+                  "file": "table-operations.spec.ts",
+                  "line": 109,
+                  "column": 5
+                },
+                {
+                  "title": "should edit an existing row",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "2d46daa4b8414b2c6818-78fbb98d8f9bd0798b96",
+                  "file": "table-operations.spec.ts",
+                  "line": 125,
+                  "column": 5
+                },
+                {
+                  "title": "should delete a row",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "2d46daa4b8414b2c6818-8b92f1ec1a10e729deb1",
+                  "file": "table-operations.spec.ts",
+                  "line": 148,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "Row Operations - Data Types",
+              "file": "table-operations.spec.ts",
+              "line": 169,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "should handle string values correctly",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "2d46daa4b8414b2c6818-d3179c972892fb3b47c8",
+                  "file": "table-operations.spec.ts",
+                  "line": 170,
+                  "column": 5
+                },
+                {
+                  "title": "should handle number values correctly",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "2d46daa4b8414b2c6818-41974ca2ff2987c9099d",
+                  "file": "table-operations.spec.ts",
+                  "line": 199,
+                  "column": 5
+                },
+                {
+                  "title": "should handle boolean values correctly",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "2d46daa4b8414b2c6818-d1034a93f0504d5e08d8",
+                  "file": "table-operations.spec.ts",
+                  "line": 219,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "Row Operations - Error Handling",
+              "file": "table-operations.spec.ts",
+              "line": 240,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "should handle duplicate row IDs",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "2d46daa4b8414b2c6818-7a704b6d50af537cd920",
+                  "file": "table-operations.spec.ts",
+                  "line": 241,
+                  "column": 5
+                },
+                {
+                  "title": "should validate required fields",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "2d46daa4b8414b2c6818-5f26eb18a330e825d5bc",
+                  "file": "table-operations.spec.ts",
+                  "line": 273,
+                  "column": 5
+                },
+                {
+                  "title": "should handle network errors during row operations",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "2d46daa4b8414b2c6818-3881e1b3c7f06c245b58",
+                  "file": "table-operations.spec.ts",
+                  "line": 295,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "Real-time Data Updates",
+              "file": "table-operations.spec.ts",
+              "line": 323,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "should refresh table data correctly",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "2d46daa4b8414b2c6818-625df523ce5a54198579",
+                  "file": "table-operations.spec.ts",
+                  "line": 324,
+                  "column": 5
+                },
+                {
+                  "title": "should handle concurrent row operations",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "2d46daa4b8414b2c6818-ee4d18aca43ac2ec1a1b",
+                  "file": "table-operations.spec.ts",
+                  "line": 342,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "UI State Management",
+              "file": "table-operations.spec.ts",
+              "line": 369,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "should maintain form state during interactions",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "2d46daa4b8414b2c6818-6997ec2f009db6b633f6",
+                  "file": "table-operations.spec.ts",
+                  "line": 370,
+                  "column": 5
+                },
+                {
+                  "title": "should handle form validation feedback",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "2d46daa4b8414b2c6818-55c2e1014ac1202a3a44",
+                  "file": "table-operations.spec.ts",
+                  "line": 401,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "Integration Tests",
+              "file": "table-operations.spec.ts",
+              "line": 421,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "should complete full workflow: create table, add rows, edit, delete",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "2d46daa4b8414b2c6818-f2b54184d908723e19bb",
+                  "file": "table-operations.spec.ts",
+                  "line": 422,
+                  "column": 5
+                },
+                {
+                  "title": "should handle session persistence during operations",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "2d46daa4b8414b2c6818-44159a1c4c84f1702859",
+                  "file": "table-operations.spec.ts",
+                  "line": 464,
+                  "column": 5
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2025-05-24T06:23:00.193Z",
+    "duration": 160.12199999999996,
+    "expected": 0,
+    "skipped": 62,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

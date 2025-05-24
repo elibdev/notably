@@ -10,6 +10,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
@@ -607,8 +608,31 @@ func unmarshalFactItems(items []map[string]types.AttributeValue) ([]Fact, error)
 		}
 
 		if v, ok := item["Value"]; ok {
-			if sv, ok := v.(*types.AttributeValueMemberS); ok {
-				fact.Value = sv.Value
+			var value interface{}
+			err := attributevalue.Unmarshal(v, &value)
+			if err != nil {
+				return nil, fmt.Errorf("unmarshal value failed: %w", err)
+			}
+
+			// Convert interface{} to string based on data type
+			if string(fact.DataType) == "json" {
+				// For JSON data, marshal back to JSON string
+				if value != nil {
+					jsonBytes, err := json.Marshal(value)
+					if err != nil {
+						return nil, fmt.Errorf("marshal JSON value failed: %w", err)
+					}
+					fact.Value = string(jsonBytes)
+				} else {
+					fact.Value = "null"
+				}
+			} else {
+				// For other types, convert to string representation
+				if value != nil {
+					fact.Value = fmt.Sprintf("%v", value)
+				} else {
+					fact.Value = ""
+				}
 			}
 		}
 
