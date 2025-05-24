@@ -72,6 +72,8 @@ See the [Testing Guidelines](backend/TESTING.md) for more details on using the `
 
 ## Frontend
 
+The frontend is a React + TypeScript application built with Vite and styled with Mantine UI components.
+
 To run the web frontend, navigate into the `frontend` directory and install dependencies:
 
 ```bash
@@ -80,7 +82,43 @@ npm install
 npm run dev
 ```
 
-The frontend will be available at http://localhost:3000 and proxies API requests to http://localhost:8080.
+The frontend will be available at http://localhost:5173 and proxies API requests to http://localhost:8080.
+
+### Development Scripts
+
+- `npm run dev` - Start the development server
+- `npm run build` - Build for production 
+- `npm run preview` - Preview production build
+- `npm run lint` - Run ESLint
+- `npm run dev:all` - Start both frontend and backend concurrently
+
+### Testing
+
+The frontend uses Playwright for end-to-end testing with comprehensive test coverage:
+
+```bash
+# Install Playwright browsers
+npm run test:install
+
+# Run all tests
+npm run test
+
+# Run tests in headed mode (with browser UI)
+npm run test:headed
+
+# Run tests with debug mode
+npm run test:debug
+
+# Open Playwright UI for interactive testing
+npm run test:ui
+
+# Run specific test suites
+npm run test:auth          # Authentication tests
+npm run test:tables        # Table operations tests
+npm run test:history       # History snapshot tests
+npm run test:workflows     # Data workflow tests
+npm run test:accessibility # Accessibility tests
+```
 
 To set up the backend for local dev:
 

@@ -21,6 +21,9 @@
     "test:tables": "playwright test table-operations.spec.ts --reporter=list",
     "test:history": "playwright test history-snapshot.spec.ts --reporter=list",
     "test:regression": "playwright test regression.spec.ts --reporter=list",
+    "test:workflows": "playwright test data-workflows.spec.ts --reporter=list",
+    "test:integration": "playwright test integration-workflows.spec.ts --reporter=list",
+    "test:accessibility": "playwright test accessibility-compatibility.spec.ts --reporter=list",
     "dev:all": "concurrently \"npm run dev\" \"./scripts/start-backend.sh\"",
     "start:backend": "./scripts/start-backend.sh"
   },

@@ -263,6 +263,86 @@ export class TestHelpers {
     console.log('Test cleanup - consider implementing API cleanup calls');
   }
 
+  // Bulk operation helpers
+  async createMultipleRows(rows: TestRow[]): Promise<void> {
+    for (const row of rows) {
+      await this.createRow(row);
+      await this.page.waitForTimeout(200); // Brief pause between operations
+    }
+  }
+
+  async updateMultipleRows(updates: Array<{ id: string; values: Record<string, unknown> }>): Promise<void> {
+    for (const update of updates) {
+      await this.editRow(update.id, update.values);
+      await this.page.waitForTimeout(200);
+    }
+  }
+
+  async deleteMultipleRows(rowIds: string[]): Promise<void> {
+    for (const id of rowIds) {
+      await this.deleteRow(id);
+      await this.page.waitForTimeout(200);
+    }
+  }
+
+  // Search and filtering helpers
+  async searchTable(searchTerm: string): Promise<void> {
+    const searchInput = this.page.locator('input[placeholder*="Search"], input[placeholder*="Filter"]');
+    if (await searchInput.isVisible()) {
+      await searchInput.fill(searchTerm);
+      await this.page.waitForTimeout(1000); // Wait for filter to apply
+    }
+  }
+
+  async clearSearch(): Promise<void> {
+    const searchInput = this.page.locator('input[placeholder*="Search"], input[placeholder*="Filter"]');
+    if (await searchInput.isVisible()) {
+      await searchInput.clear();
+      await this.page.waitForTimeout(500);
+    }
+  }
+
+  async sortByColumn(columnName: string): Promise<void> {
+    const columnHeader = this.page.locator(`th:has-text("${columnName}")`);
+    if (await columnHeader.isVisible()) {
+      await columnHeader.click();
+      await this.page.waitForTimeout(1000);
+    }
+  }
+
+  // Keyboard navigation helpers
+  async navigateWithKeyboard(key: string, times: number = 1): Promise<void> {
+    for (let i = 0; i < times; i++) {
+      await this.page.keyboard.press(key);
+      await this.page.waitForTimeout(100);
+    }
+  }
+
+  async activateWithKeyboard(): Promise<void> {
+    await this.page.keyboard.press('Enter');
+  }
+
+  async cancelWithEscape(): Promise<void> {
+    await this.page.keyboard.press('Escape');
+  }
+
+  async toggleCheckboxWithKeyboard(): Promise<void> {
+    await this.page.keyboard.press('Space');
+  }
+
+  // Performance helpers
+  async measureOperationTime<T>(operation: () => Promise<T>): Promise<{ result: T; duration: number }> {
+    const startTime = Date.now();
+    const result = await operation();
+    const duration = Date.now() - startTime;
+    return { result, duration };
+  }
+
+  async waitForTableToStabilize(): Promise<void> {
+    await this.waitForNetworkIdle();
+    await this.page.waitForTimeout(1000); // Additional stability wait
+  }
+
   // Navigation helpers
   async navigateToTable(tableName: string): Promise<void> {
     await this.selectTable(tableName);
@@ -310,6 +390,21 @@ export class TestHelpers {
     await expect(errorElements).toHaveCount(0);
   }
 
+  async expectErrorMessage(message: string): Promise<void> {
+    const errorElement = this.page.locator(`text*=${message}, .error:has-text("${message}")`);
+    await expect(errorElement).toBeVisible({ timeout: 10000 });
+  }
+
+  async simulateNetworkError(urlPattern: string): Promise<void> {
+    await this.page.route(urlPattern, route => {
+      route.abort();
+    });
+  }
+
+  async removeNetworkErrorSimulation(urlPattern: string): Promise<void> {
+    await this.page.unroute(urlPattern);
+  }
+
   async capturePageState(): Promise<void> {
     // Take screenshot for debugging
     await this.page.screenshot({ path: `debug-${Date.now()}.png`, fullPage: true });
@@ -317,6 +412,85 @@ export class TestHelpers {
     // Log console messages
     console.log('Page URL:', this.page.url());
     console.log('Page title:', await this.page.title());
+  }
+
+  // Accessibility helpers
+  async checkFocusVisible(): Promise<boolean> {
+    const focusedElement = this.page.locator(':focus');
+    return await focusedElement.isVisible();
+  }
+
+  async getFocusedElementText(): Promise<string | null> {
+    const focusedElement = this.page.locator(':focus');
+    if (await focusedElement.isVisible()) {
+      return await focusedElement.textContent();
+    }
+    return null;
+  }
+
+  async checkAriaAttributes(selector: string): Promise<Record<string, string | null>> {
+    const element = this.page.locator(selector);
+    return await element.evaluate(el => {
+      return {
+        role: el.getAttribute('role'),
+        'aria-label': el.getAttribute('aria-label'),
+        'aria-describedby': el.getAttribute('aria-describedby'),
+        'aria-live': el.getAttribute('aria-live'),
+        'aria-expanded': el.getAttribute('aria-expanded'),
+        'aria-hidden': el.getAttribute('aria-hidden')
+      };
+    });
+  }
+
+  async checkColorContrast(selector: string): Promise<{ color: string; backgroundColor: string; fontSize: string }> {
+    const element = this.page.locator(selector);
+    return await element.evaluate(el => {
+      const styles = window.getComputedStyle(el);
+      return {
+        color: styles.color,
+        backgroundColor: styles.backgroundColor,
+        fontSize: styles.fontSize
+      };
+    });
+  }
+
+  // Modal and dialog helpers
+  async waitForModal(modalSelector: string): Promise<void> {
+    await this.page.waitForSelector(modalSelector, { timeout: 5000 });
+  }
+
+  async closeModalWithEscape(): Promise<void> {
+    await this.page.keyboard.press('Escape');
+    await this.page.waitForTimeout(500);
+  }
+
+  async verifyModalClosed(modalSelector: string): Promise<void> {
+    await expect(this.page.locator(modalSelector)).not.toBeVisible();
+  }
+
+  // Form helpers enhancement
+  async fillFormWithKeyboard(formData: Record<string, string>): Promise<void> {
+    for (const [field, value] of Object.entries(formData)) {
+      await this.page.keyboard.press('Tab');
+      const currentField = this.page.locator(':focus');
+      const placeholder = await currentField.getAttribute('placeholder');
+      
+      if (placeholder && placeholder.toLowerCase().includes(field.toLowerCase())) {
+        await this.page.keyboard.type(value);
+      }
+    }
+  }
+
+  async submitFormWithKeyboard(): Promise<void> {
+    // Navigate to submit button and activate
+    for (let i = 0; i < 10; i++) {
+      await this.page.keyboard.press('Tab');
+      const focusedText = await this.getFocusedElementText();
+      if (focusedText && (focusedText.includes('Save') || focusedText.includes('Create') || focusedText.includes('Submit'))) {
+        await this.page.keyboard.press('Enter');
+        break;
+      }
+    }
   }
 }
 
@@ -343,10 +517,74 @@ export function createTestTable(suffix: string = ''): TestTable {
   };
 }
 
+export function createCustomTestTable(suffix: string = '', columns: Array<{ name: string; dataType: string }>): TestTable {
+  const timestamp = Date.now();
+  return {
+    name: `custom_table_${timestamp}${suffix}`,
+    columns
+  };
+}
+
+export function generateTestData(count: number, template: Record<string, unknown>): TestRow[] {
+  const rows: TestRow[] = [];
+  for (let i = 0; i < count; i++) {
+    const values: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(template)) {
+      if (typeof value === 'string') {
+        values[key] = `${value} ${i + 1}`;
+      } else if (typeof value === 'number') {
+        values[key] = value + i;
+      } else if (typeof value === 'boolean') {
+        values[key] = i % 2 === 0;
+      } else {
+        values[key] = value;
+      }
+    }
+    rows.push({ values });
+  }
+  return rows;
+}
+
 export async function setupTestEnvironment(page: Page): Promise<{ helpers: TestHelpers; user: TestUser; table: TestTable }> {
   const helpers = new TestHelpers(page);
   const user = createTestUser();
   const table = createTestTable();
   
   return { helpers, user, table };
+}
+
+export async function setupComplexTestEnvironment(page: Page, tableCount: number = 1): Promise<{
+  helpers: TestHelpers;
+  user: TestUser;
+  tables: TestTable[];
+}> {
+  const helpers = new TestHelpers(page);
+  const user = createTestUser();
+  const tables: TestTable[] = [];
+  
+  for (let i = 0; i < tableCount; i++) {
+    tables.push(createTestTable(`_${i}`));
+  }
+  
+  return { helpers, user, tables };
+}
+
+// Utility functions for test data generation
+export function createLargeDataset(size: number): TestRow[] {
+  return generateTestData(size, {
+    name: 'Test User',
+    email: 'test@example.com',
+    age: 25,
+    active: true
+  });
+}
+
+export function createDiverseDataset(): TestRow[] {
+  return [
+    { values: { name: 'Alice Johnson', email: 'alice@example.com', age: 25, active: true } },
+    { values: { name: 'Bob Smith', email: 'bob@test.com', age: 30, active: false } },
+    { values: { name: 'Charlie Brown', email: 'charlie@example.com', age: 35, active: true } },
+    { values: { name: 'Diana Wilson', email: 'diana@sample.com', age: 28, active: false } },
+    { values: { name: 'Eve Davis', email: 'eve@example.com', age: 32, active: true } }
+  ];
 }
