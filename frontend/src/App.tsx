@@ -140,12 +140,25 @@ function AuthComponent({ onLogin, onRegister }: AuthComponentProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Basic validation - prevent submission with empty fields
-    if (!username.trim() || !password.trim() || (isRegisterTab && !email.trim())) {
-      return;
+
+    let validationError = "";
+    if (!username.trim()) {
+      validationError = "Username is required.";
+    } else if (isRegisterTab && !email.trim()) {
+      validationError = "Email is required for registration.";
+    } else if (!password.trim()) {
+      validationError = "Password is required.";
     }
-    
+
+    if (validationError) {
+      notifications.show({ // From '@mantine/notifications'
+        title: "Validation Error",
+        message: validationError,
+        color: "red",
+      });
+      return; // Stop submission
+    }
+
     setLoading(true);
     try {
       if (isRegisterTab) {

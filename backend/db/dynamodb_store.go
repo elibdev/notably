@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os" // Added import
 	"strings"
 	"time"
 
@@ -82,11 +83,8 @@ func getEnv(key, fallback string) string {
 
 // getEnvFn is a variable for easier testing
 var getEnvFn = func(key string) (string, bool) {
-	value, exists := strings.CutPrefix(key, "=")
-	if exists {
-		return value, true
-	}
-	return "", false
+	value := os.Getenv(key)
+	return value, value != "" // os.Getenv returns empty string if var isn't set
 }
 
 // CreateTable implements Store.CreateTable

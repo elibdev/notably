@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"errors" // Added import
 	"fmt"
 	"time"
 
@@ -96,12 +97,9 @@ func IsNotFound(err error) bool {
 		return false
 	}
 	var storeErr *StoreError
-	if e, ok := err.(*StoreError); ok {
-		storeErr = e
-	} else {
-		return false
+	if errors.As(err, &storeErr) {
+		var rnfErr *types.ResourceNotFoundException
+		return errors.As(storeErr.Err, &rnfErr)
 	}
-
-	_, ok := storeErr.Err.(*types.ResourceNotFoundException)
-	return ok
+	return false
 }
