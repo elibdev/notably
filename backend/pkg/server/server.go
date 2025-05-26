@@ -135,6 +135,9 @@ func init() {
 }
 
 func (s *Server) registerRoutes() {
+	// Health check endpoint (no auth required)
+	s.mux.HandleFunc("GET /health", s.handleHealth)
+
 	// Authentication endpoints (no auth required)
 	s.mux.HandleFunc("POST /auth/register", s.handleRegister)
 	s.mux.HandleFunc("POST /auth/login", s.handleLogin)
@@ -186,7 +189,7 @@ func (s *Server) Run() error {
 
 	// Create a CORS middleware
 	c := cors.New(cors.Options{
-		AllowedOrigins: []string{"http://localhost:3000"}, // Add your frontend URL
+		AllowedOrigins: []string{"http://localhost:5173"}, // Add your frontend URL
 		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders: []string{"Content-Type", "Authorization"},
 		// Enable Debugging for testing, consider disabling in production
@@ -197,6 +200,13 @@ func (s *Server) Run() error {
 	handler := c.Handler(s.mux)
 
 	return http.ListenAndServe(s.config.Addr, handler)
+}
+
+// handleHealth returns a simple health check response
+func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status":"healthy","service":"notably-api"}`))
 }
 
 // Stop gracefully stops the server
