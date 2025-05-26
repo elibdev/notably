@@ -41,6 +41,8 @@ type Server struct {
 	mux           *http.ServeMux
 	authenticator *auth.Authenticator
 	userStore     auth.UserStore
+	corsHandler   http.Handler
+	awsCfg        aws.Config // New field
 }
 
 // NewServer creates a new server with the given configuration
@@ -49,16 +51,50 @@ func NewServer(config Config) (*Server, error) {
 	userStore := auth.NewInMemoryUserStore()
 	authenticator := auth.NewAuthenticator(userStore)
 
-	// Create the server
+	// Load AWS config once
+	opts := []func(*config.LoadOptions) error{}
+	if config.DynamoEndpoint != "" {
+		resolver := aws.EndpointResolverFunc(func(service, region string) (aws.Endpoint, error) {
+			return aws.Endpoint{URL: config.DynamoEndpoint, SigningRegion: region}, nil
+		})
+		opts = append(opts, config.WithEndpointResolver(resolver))
+	}
+	awsCfg, err := config.LoadDefaultConfig(context.TODO(), opts...) // Use context.TODO() or background
+	if err != nil {
+		return nil, fmt.Errorf("failed to load AWS config: %w", err)
+	}
+
+	// Ensure table exists on startup (using a temporary client for this)
+	// The userID for CreateTable doesn't strictly matter if it's just ensuring table structure.
+	// However, the dynamo.NewClient requires a userID. We can pass a placeholder or an admin/system ID.
+	// Let's use a placeholder "system_user_for_table_creation".
+	tempDynamoClient := dynamo.NewClient(awsCfg, config.TableName, "system_user_for_table_creation")
+	// It's important to use a context for CreateTable. context.Background() is suitable for startup.
+	if err := tempDynamoClient.CreateTable(context.Background()); err != nil {
+		// Log the error but don't necessarily fail server startup,
+		// as the table might already exist and permissions might be the issue.
+		// Or, decide to fail hard if table creation is critical.
+		// For now, let's log and continue.
+		log.Printf("Warning: Failed to ensure DynamoDB table '%s' exists on startup: %v", config.TableName, err)
+	}
+
 	server := &Server{
 		config:        config,
 		mux:           http.NewServeMux(),
 		authenticator: authenticator,
 		userStore:     userStore,
+		awsCfg:        awsCfg, // Store the loaded config
 	}
 
-	// Register routes
 	server.registerRoutes()
+
+	c := cors.New(cors.Options{
+		AllowedOrigins: []string{"http://localhost:5173"},
+		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders: []string{"Content-Type", "Authorization"},
+		Debug:          true,
+	})
+	server.corsHandler = c.Handler(server.mux)
 
 	return server, nil
 }
@@ -109,24 +145,9 @@ func validateValueType(value interface{}, dataType string) bool {
 		_, ok := value.([]interface{})
 		return ok
 	default:
-		// Unknown type, consider valid
-		return true
+		// Unknown type, consider invalid
+		return false // Changed from true to false
 	}
-}
-
-// Helper function to check if a table exists for the given user
-func tableExists(ctx context.Context, store *db.StoreAdapter, userID, table string) bool {
-	snap, err := store.GetSnapshot(ctx, time.Now().UTC())
-	if err != nil {
-		log.Printf("Error checking if table exists for user %s, table %s: %v", userID, table, err)
-		return false
-	}
-
-	if entries, ok := snap[userID]; ok {
-		_, exists := entries[table]
-		return exists
-	}
-	return false
 }
 
 func init() {
@@ -186,20 +207,8 @@ func (s *Server) registerRoutes() {
 // Run starts the server
 func (s *Server) Run() error {
 	log.Printf("Starting server on %s", s.config.Addr)
-
-	// Create a CORS middleware
-	c := cors.New(cors.Options{
-		AllowedOrigins: []string{"http://localhost:5173"}, // Add your frontend URL
-		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders: []string{"Content-Type", "Authorization"},
-		// Enable Debugging for testing, consider disabling in production
-		Debug: true,
-	})
-
-	// Use the middleware
-	handler := c.Handler(s.mux)
-
-	return http.ListenAndServe(s.config.Addr, handler)
+	// Use the pre-configured CORS handler
+	return http.ListenAndServe(s.config.Addr, s.corsHandler)
 }
 
 // handleHealth returns a simple health check response
@@ -215,50 +224,25 @@ func (s *Server) Stop(ctx context.Context) error {
 	return nil
 }
 
-// Handler returns the HTTP handler for the server with CORS middleware
-func (s *Server) Handler() http.Handler {
-	// Create a CORS middleware
-	c := cors.New(cors.Options{
-		AllowedOrigins: []string{"http://localhost:3000"}, // Add your frontend URL
-		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders: []string{"Content-Type", "Authorization"},
-		// Enable Debugging for testing, consider disabling in production
-		Debug: true,
-	})
-
-	// Use the middleware
-	return c.Handler(s.mux)
-}
-
 // Helper methods
 
 // getStoreForUser returns a store adapter for the given user ID
 func (s *Server) getStoreForUser(ctx context.Context, userID string) (*db.StoreAdapter, error) {
-	// Create AWS config
-	opts := []func(*config.LoadOptions) error{}
-	if s.config.DynamoEndpoint != "" {
-		resolver := aws.EndpointResolverFunc(func(service, region string) (aws.Endpoint, error) {
-			return aws.Endpoint{URL: s.config.DynamoEndpoint, SigningRegion: region}, nil
-		})
-		opts = append(opts, config.WithEndpointResolver(resolver))
-	}
-
-	cfg, err := config.LoadDefaultConfig(ctx, opts...)
-	if err != nil {
-		log.Printf("Error loading AWS config: %v", err)
-		return nil, fmt.Errorf("loading AWS config: %w", err)
-	}
-
+	// Use the stored AWS config
 	// Create client and store
-	client := dynamo.NewClient(cfg, s.config.TableName, userID)
+	// The dynamo.NewClient is light enough to be created per call if userID specific behavior is needed.
+	// If dynamo.Client could be shared and userID passed to its methods, that would be even better.
+	// For now, this is a good improvement.
+	client := dynamo.NewClient(s.awsCfg, s.config.TableName, userID)
 
-	// Ensure the table exists (this is idempotent and safe to call every time)
-	if err := client.CreateTable(ctx); err != nil {
-		log.Printf("Error ensuring DynamoDB table exists: %v", err)
-		return nil, fmt.Errorf("ensuring table exists: %w", err)
-	}
+	// The CreateTable call has been moved to NewServer.
 
 	// Create adapter for the store
+	// db.CreateStoreFromClient uses the old dynamo.Client which expects the dynamo.Fact
+	// db.NewStoreAdapter wraps a db.Store (like DynamoDBStore)
+	// The existing line is: store := db.NewStoreAdapter(db.CreateStoreFromClient(client))
+	// This implies db.CreateStoreFromClient(client) returns a db.Store compatible thing.
+	// Let's assume this structure is correct and db.CreateStoreFromClient adapts the dynamo.Client to db.Store interface.
 	store := db.NewStoreAdapter(db.CreateStoreFromClient(client))
 
 	return store, nil
@@ -795,6 +779,20 @@ func (s *Server) handleUpdateRow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Read the request body
+	var req struct {
+		Values map[string]interface{} `json:"values"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("Invalid JSON: %v", err))
+		return
+	}
+	if req.Values == nil {
+		writeError(w, http.StatusBadRequest, "Row values are required for update")
+		return
+	}
+
+	// Check if the row exists
 	snap, err := store.GetSnapshot(r.Context(), time.Now().UTC())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get snapshot: %v", err))
@@ -802,19 +800,72 @@ func (s *Server) handleUpdateRow(w http.ResponseWriter, r *http.Request) {
 	}
 
 	key := fmt.Sprintf("%s/%s", user.ID, table)
+	rowExists := false
 	if entries, ok := snap[key]; ok {
 		if fact, ok := entries[rowID]; ok && fact.DataType == "json" {
-			vals, ok := fact.Value.(map[string]interface{})
-			if !ok {
-				writeError(w, http.StatusInternalServerError, "Invalid row data format")
-				return
-			}
-			writeJSON(w, http.StatusOK, RowData{ID: rowID, Timestamp: fact.Timestamp, Values: vals})
-			return
+			rowExists = true
 		}
 	}
 
-	writeError(w, http.StatusNotFound, fmt.Sprintf("Row '%s' not found in table '%s'", rowID, table))
+	if !rowExists {
+		writeError(w, http.StatusNotFound, fmt.Sprintf("Row '%s' not found in table '%s'", rowID, table))
+		return
+	}
+
+	// Validate against column definitions (similar to handleCreateRow)
+	tableFacts, err := store.QueryByField(r.Context(), user.ID, table, time.Time{}, time.Now().UTC())
+	if err != nil || len(tableFacts) == 0 {
+		// This should ideally not happen if the table check passed earlier, but good to have
+		writeError(w, http.StatusNotFound, fmt.Sprintf("Table '%s' definition not found", table))
+		return
+	}
+
+	if len(tableFacts[0].Columns) > 0 {
+		for colName, value := range req.Values {
+			found := false
+			var colDef dynamo.ColumnDefinition
+			for _, col := range tableFacts[0].Columns {
+				if col.Name == colName {
+					found = true
+					colDef = col
+					break
+				}
+			}
+
+			if !found {
+				// Depending on requirements, you might allow adding new columns
+				// or enforce that only defined columns can be updated.
+				// For now, let's assume we only update existing, defined columns.
+				// If you want to allow adding new columns, remove this check.
+				writeError(w, http.StatusBadRequest, fmt.Sprintf("Column '%s' is not defined in table schema. Updates are restricted to defined columns.", colName))
+				return
+			}
+
+			if !validateValueType(value, colDef.DataType) {
+				writeError(w, http.StatusBadRequest, fmt.Sprintf("Value for column '%s' does not match expected type '%s'", colName, colDef.DataType))
+				return
+			}
+		}
+	}
+
+	// Create the updated fact
+	updatedFact := dynamo.Fact{
+		ID:        newID(), // This creates a new version of the fact (event sourcing)
+		Timestamp: time.Now().UTC(),
+		Namespace: key,     // Namespace for the row data (user.ID/table)
+		FieldName: rowID,   // FieldName stores the actual Row ID
+		DataType:  "json",
+		Value:     req.Values, // The new values for the row
+	}
+
+	// Save the updated fact to the store
+	if err := store.PutFact(r.Context(), updatedFact); err != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to update row: %v", err))
+		return
+	}
+
+	// Return the updated row data
+	writeJSON(w, http.StatusOK, RowData{ID: rowID, Timestamp: updatedFact.Timestamp, Values: req.Values})
 }
 
 func (s *Server) handleGetRow(w http.ResponseWriter, r *http.Request) {
@@ -841,53 +892,30 @@ func (s *Server) handleGetRow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate row exists
-	key := fmt.Sprintf("%s/%s", user.ID, table)
+	// Get current snapshot for the table
 	snap, err := store.GetSnapshot(r.Context(), time.Now().UTC())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get snapshot: %v", err))
 		return
 	}
 
-	rowExists := false
+	key := fmt.Sprintf("%s/%s", user.ID, table)
+
+	// Look for the row in the snapshot
 	if entries, ok := snap[key]; ok {
-		_, rowExists = entries[rowID]
+		if fact, ok := entries[rowID]; ok && fact.DataType == "json" {
+			vals, dataOk := fact.Value.(map[string]interface{})
+			if !dataOk {
+				writeError(w, http.StatusInternalServerError, "Invalid row data format")
+				return
+			}
+			writeJSON(w, http.StatusOK, RowData{ID: rowID, Timestamp: fact.Timestamp, Values: vals})
+			return
+		}
 	}
 
-	if !rowExists {
-		writeError(w, http.StatusNotFound, fmt.Sprintf("Row '%s' not found in table '%s'", rowID, table))
-		return
-	}
-
-	var req struct {
-		Values map[string]interface{} `json:"values"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, fmt.Sprintf("Invalid JSON: %v", err))
-		return
-	}
-
-	if req.Values == nil {
-		writeError(w, http.StatusBadRequest, "Row values are required")
-		return
-	}
-
-	fact := dynamo.Fact{
-		ID:        newID(),
-		Timestamp: time.Now().UTC(),
-		Namespace: fmt.Sprintf("%s/%s", user.ID, table),
-		FieldName: rowID,
-		DataType:  "json",
-		Value:     req.Values,
-	}
-
-	if err := store.PutFact(r.Context(), fact); err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to update row: %v", err))
-		return
-	}
-
-	writeJSON(w, http.StatusOK, RowData{ID: rowID, Timestamp: fact.Timestamp, Values: req.Values})
+	// If the row is not found after these checks, return a 404 error
+	writeError(w, http.StatusNotFound, fmt.Sprintf("Row '%s' not found in table '%s'", rowID, table))
 }
 
 func (s *Server) handleDeleteRow(w http.ResponseWriter, r *http.Request) {
