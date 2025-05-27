@@ -852,8 +852,8 @@ func (s *Server) handleUpdateRow(w http.ResponseWriter, r *http.Request) {
 	updatedFact := dynamo.Fact{
 		ID:        newID(), // This creates a new version of the fact (event sourcing)
 		Timestamp: time.Now().UTC(),
-		Namespace: key,     // Namespace for the row data (user.ID/table)
-		FieldName: rowID,   // FieldName stores the actual Row ID
+		Namespace: key,   // Namespace for the row data (user.ID/table)
+		FieldName: rowID, // FieldName stores the actual Row ID
 		DataType:  "json",
 		Value:     req.Values, // The new values for the row
 	}
