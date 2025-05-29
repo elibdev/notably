@@ -46,20 +46,26 @@ type Server struct {
 }
 
 // NewServer creates a new server with the given configuration
-func NewServer(config Config) (*Server, error) {
+func NewServer(cfg Config) (*Server, error) {
 	// Initialize user store
 	userStore := auth.NewInMemoryUserStore()
 	authenticator := auth.NewAuthenticator(userStore)
 
 	// Load AWS config once
-	opts := []func(*config.LoadOptions) error{}
-	if config.DynamoEndpoint != "" {
-		resolver := aws.EndpointResolverFunc(func(service, region string) (aws.Endpoint, error) {
-			return aws.Endpoint{URL: config.DynamoEndpoint, SigningRegion: region}, nil
-		})
-		opts = append(opts, config.WithEndpointResolver(resolver))
+	var awsCfg aws.Config
+	var err error
+
+	if cfg.DynamoEndpoint != "" {
+		awsCfg, err = config.LoadDefaultConfig(context.TODO(),
+			config.WithEndpointResolver(aws.EndpointResolverFunc(
+				func(service, region string) (aws.Endpoint, error) {
+					return aws.Endpoint{URL: cfg.DynamoEndpoint}, nil
+				})),
+		)
+	} else {
+		awsCfg, err = config.LoadDefaultConfig(context.TODO())
 	}
-	awsCfg, err := config.LoadDefaultConfig(context.TODO(), opts...) // Use context.TODO() or background
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to load AWS config: %w", err)
 	}
@@ -68,22 +74,22 @@ func NewServer(config Config) (*Server, error) {
 	// The userID for CreateTable doesn't strictly matter if it's just ensuring table structure.
 	// However, the dynamo.NewClient requires a userID. We can pass a placeholder or an admin/system ID.
 	// Let's use a placeholder "system_user_for_table_creation".
-	tempDynamoClient := dynamo.NewClient(awsCfg, config.TableName, "system_user_for_table_creation")
+	tempDynamoClient := dynamo.NewClient(awsCfg, cfg.TableName, "system_user_for_table_creation")
 	// It's important to use a context for CreateTable. context.Background() is suitable for startup.
 	if err := tempDynamoClient.CreateTable(context.Background()); err != nil {
 		// Log the error but don't necessarily fail server startup,
 		// as the table might already exist and permissions might be the issue.
 		// Or, decide to fail hard if table creation is critical.
 		// For now, let's log and continue.
-		log.Printf("Warning: Failed to ensure DynamoDB table '%s' exists on startup: %v", config.TableName, err)
+		log.Printf("Warning: Failed to ensure DynamoDB table '%s' exists on startup: %v", cfg.TableName, err)
 	}
 
 	server := &Server{
-		config:        config,
+		config:        cfg,
 		mux:           http.NewServeMux(),
 		authenticator: authenticator,
 		userStore:     userStore,
-		awsCfg:        awsCfg, // Store the loaded config
+		awsCfg:        awsCfg, // Store the config in the server
 	}
 
 	server.registerRoutes()
@@ -209,6 +215,11 @@ func (s *Server) Run() error {
 	log.Printf("Starting server on %s", s.config.Addr)
 	// Use the pre-configured CORS handler
 	return http.ListenAndServe(s.config.Addr, s.corsHandler)
+}
+
+// Handler returns the HTTP handler for the server
+func (s *Server) Handler() http.Handler {
+	return s.corsHandler
 }
 
 // handleHealth returns a simple health check response
