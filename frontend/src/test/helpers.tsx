@@ -346,18 +346,6 @@ export class TestHelpers {
     await this.user.click(submitButton)
   }
 
-  // Accessibility helpers
-  async checkFocusVisible(): Promise<void> {
-    const focusedElement = document.activeElement
-    expect(focusedElement).toBeInTheDocument()
-  }
-
-  async checkAriaAttributes(element: HTMLElement, expectedAttributes: Record<string, string>): Promise<void> {
-    for (const [attr, value] of Object.entries(expectedAttributes)) {
-      expect(element).toHaveAttribute(attr, value)
-    }
-  }
-
   // Search and filter helpers
   async searchTable(searchTerm: string): Promise<void> {
     const searchInput = screen.getByPlaceholderText(/search/i)
