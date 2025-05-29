@@ -1,8 +1,8 @@
 import React from 'react'
 import { describe, test, expect, beforeEach } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
-import { TestHelpers, createTestUser } from '../src/test/helpers'
-import App from '../src/App'
+import { TestHelpers, createTestUser } from '../test/helpers'
+import App from '../App'
 
 describe('Smoke Tests', () => {
   let helpers: TestHelpers

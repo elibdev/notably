@@ -1,10 +1,10 @@
 import React from 'react'
 import { describe, test, expect, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
-import { TestHelpers, createTestUser } from '../src/test/helpers'
-import { server } from '../src/test/setup'
+import { TestHelpers, createTestUser } from '../test/helpers'
+import { server } from '../test/setup'
 import { http, HttpResponse } from 'msw'
-import App from '../src/App'
+import App from '../App'
 
 describe('Authentication', () => {
   let helpers: TestHelpers

@@ -1,10 +1,10 @@
 import React from 'react'
 import { describe, test, expect, beforeEach } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
-import { TestHelpers, createTestUser, createTestTable, generateTestData } from '../src/test/helpers'
-import { server } from '../src/test/setup'
+import { TestHelpers, createTestUser, createTestTable, generateTestData } from '../test/helpers'
+import { server } from '../test/setup'
 import { http, HttpResponse } from 'msw'
-import App from '../src/App'
+import App from '../App'
 
 describe('Data Workflows', () => {
   let helpers: TestHelpers
