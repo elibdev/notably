@@ -65,22 +65,7 @@ format:
 
 # Database operations
 db-setup:
-	@echo "Run the following AWS CLI to create the table manually:"
-	@echo ""
-	@echo "aws dynamodb create-table \\"
-	@echo "  --table-name timedb \\"
-	@echo "  --attribute-definitions \\"
-	@echo "    AttributeName=PK,AttributeType=S \\"
-	@echo "    AttributeName=SK,AttributeType=S \\"
-	@echo "    AttributeName=GSI1PK,AttributeType=S \\"
-	@echo "    AttributeName=GSI1SK,AttributeType=S \\"
-	@echo "  --key-schema \\"
-	@echo "    AttributeName=PK,KeyType=HASH \\"
-	@echo "    AttributeName=SK,KeyType=RANGE \\"
-	@echo "  --global-secondary-indexes \\"
-	@echo '    IndexName=GSI1,KeySchema=[{AttributeName=GSI1PK,KeyType=HASH},{AttributeName=GSI1SK,KeyType=RANGE}],Projection={ProjectionType=ALL},ProvisionedThroughput={ReadCapacityUnits=5,WriteCapacityUnits=5}'
-	@echo "  --billing-mode PROVISIONED \\"
-	@echo "  --endpoint-url http://localhost:8000"
+	./scripts/setup-dynamodb.sh
 
 db-migrate:
 	@echo "Running database migrations..."
