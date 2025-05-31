@@ -1,66 +1,39 @@
 package main
 
 import (
-	"context"
-	"flag"
 	"log"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
 
-	"github.com/elibdev/notably/pkg/server"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+
+	"github.com/elibdev/notably/internal/api"
+	"github.com/elibdev/notably/internal/repository"
 )
 
 func main() {
-	// Parse command-line flags
-	var addr string
-	flag.StringVar(&addr, "addr", ":8080", "HTTP listen address")
-	flag.Parse()
-
-	// Initialize server configuration
-	config := server.DefaultConfig()
-
-	// Override address from flag
-	if addr != "" {
-		config.Addr = addr
-	}
-
-	// Validate required environment variables
-	if config.TableName == "" {
-		log.Fatal("DYNAMODB_TABLE_NAME environment variable is required")
-	}
-
-	// Create server instance
-	srv, err := server.NewServer(config)
+	// Load configuration
+	cfg, err := config.LoadConfig()
 	if err != nil {
-		log.Fatalf("Failed to create server: %v", err)
+		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	// Set up signal handling for graceful shutdown
-	stopChan := make(chan os.Signal, 1)
-	signal.Notify(stopChan, os.Interrupt, syscall.SIGTERM)
-
-	// Start server in a goroutine
-	go func() {
-		log.Printf("Starting server on %s", config.Addr)
-		if err := srv.Run(); err != nil {
-			log.Fatalf("Server error: %v", err)
-		}
-	}()
-
-	// Wait for termination signal
-	<-stopChan
-	log.Println("Shutting down server...")
-
-	// Create shutdown context with timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	// Graceful shutdown
-	if err := srv.Stop(ctx); err != nil {
-		log.Fatalf("Server shutdown failed: %v", err)
+	// Setup AWS DynamoDB client
+	awsCfg, err := setupAWSConfig(cfg)
+	if err != nil {
+		log.Fatalf("Failed to setup AWS config: %v", err)
 	}
 
-	log.Println("Server gracefully stopped")
+	dynamoClient := dynamodb.NewFromConfig(awsCfg)
+
+	// Create user manager
+	userManager := repository.NewDynamoUserManager(dynamoClient, cfg.Database.TableName)
+
+	// Create HTTP server
+	server := api.NewServer(cfg, userManager)
+
+	// Start server
+	log.Printf("Starting TimeDB server on %s:%d", cfg.Server.Host, cfg.Server.Port)
+	if err := server.Start(); err != nil {
+		log.Fatalf("Failed to start server: %v", err)
+	}
 }
