@@ -1,4 +1,3 @@
-/*
 package main
 
 import (
@@ -196,10 +195,10 @@ func makeRequest(method, url string, body interface{}, token string) (map[string
 	
 	return result, nil
 }
-*/
 
-// Dockerfile
 /*
+Example Dockerfile for deployment:
+
 # Build stage
 FROM golang:1.21-alpine AS builder
 

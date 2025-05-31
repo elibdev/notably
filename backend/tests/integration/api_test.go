@@ -1,4 +1,3 @@
-/*
 package integration
 
 import (
@@ -177,7 +176,6 @@ func createTestTable(t *testing.T, router http.Handler, token string) {
 	resp := makeTestRequest(t, router, "POST", "/api/v1/tables", reqBody, token)
 	require.Equal(t, http.StatusCreated, resp.Code)
 }
-*/
 
 func setupAWSConfig(cfg *config.Config) (aws.Config, error) {
 	ctx := context.Background()

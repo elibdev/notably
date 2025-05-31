@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/elibdev/notably/internal/api/models"
-	"github.com/elibdev/notably/internal/models"
+	domainModels "github.com/elibdev/notably/internal/models"
 	"github.com/elibdev/notably/internal/repository"
 	"github.com/gin-gonic/gin"
 )
@@ -26,11 +26,11 @@ func (h *TableHandler) CreateTable(c *gin.Context) {
 	}
 
 	// Convert API fields to internal fields
-	fields := make([]models.FieldDefinition, len(req.Fields))
+	fields := make([]domainModels.FieldDefinition, len(req.Fields))
 	for i, field := range req.Fields {
-		fields[i] = models.FieldDefinition{
+		fields[i] = domainModels.FieldDefinition{
 			Name:     field.Name,
-			DataType: models.DataType(field.DataType),
+			DataType: domainModels.DataType(field.DataType),
 		}
 	}
 
@@ -91,11 +91,11 @@ func (h *TableHandler) UpdateTable(c *gin.Context) {
 	}
 
 	// Update fields
-	fields := make([]models.FieldDefinition, len(req.Fields))
+	fields := make([]domainModels.FieldDefinition, len(req.Fields))
 	for i, field := range req.Fields {
-		fields[i] = models.FieldDefinition{
+		fields[i] = domainModels.FieldDefinition{
 			Name:     field.Name,
-			DataType: models.DataType(field.DataType),
+			DataType: domainModels.DataType(field.DataType),
 		}
 	}
 	table.Fields = fields
@@ -128,10 +128,10 @@ func (h *TableHandler) GetTableHistory(c *gin.Context) {
 	tableID := c.Param("tableId")
 
 	// Parse query parameters
-	opts := models.QueryOptions{}
+	opts := domainModels.QueryOptions{}
 	if since := c.Query("since"); since != "" {
 		if t, err := time.Parse(time.RFC3339, since); err == nil {
-			opts.TimeRange = &models.TimeRange{Start: t, End: time.Now()}
+			opts.TimeRange = &domainModels.TimeRange{Start: t, End: time.Now()}
 		}
 	}
 	if limit := c.Query("limit"); limit != "" {
@@ -152,7 +152,7 @@ func (h *TableHandler) GetFieldHistory(c *gin.Context) {
 	tableID := c.Param("tableId")
 	fieldName := c.Param("fieldName")
 
-	opts := models.QueryOptions{}
+	opts := domainModels.QueryOptions{}
 	history, err := userRepo.GetFieldHistory(c.Request.Context(), tableID, fieldName, opts)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

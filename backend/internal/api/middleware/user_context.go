@@ -24,12 +24,7 @@ func UserContext(userManager repository.UserManager) gin.HandlerFunc {
 		}
 
 		// Get user repository
-		userRepo, err := userManager.GetUserRepository(c.Request.Context(), userIDStr)
-		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
-			c.Abort()
-			return
-		}
+		userRepo := userManager.GetUserRepository(userIDStr)
 
 		c.Set("user_repo", userRepo)
 		c.Next()

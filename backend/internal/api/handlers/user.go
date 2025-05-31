@@ -26,9 +26,9 @@ func (h *UserHandler) GetCurrentUser(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"user_id":    user.ID,
+		"user_id":    user.UserID,
 		"created_at": user.CreatedAt.Format(time.RFC3339),
-		"updated_at": user.UpdatedAt.Format(time.RFC3339),
+		"updated_at": user.LastActive.Format(time.RFC3339),
 	})
 }
 

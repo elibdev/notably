@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/elibdev/notably/internal/api/models"
-	"github.com/elibdev/notably/internal/models"
+	domainModels "github.com/elibdev/notably/internal/models"
 	"github.com/elibdev/notably/internal/repository"
 	"github.com/gin-gonic/gin"
 )
@@ -162,7 +162,7 @@ func (h *EntityHandler) GetEntityHistory(c *gin.Context) {
 	entityID := c.Param("entityId")
 
 	// Parse query parameters
-	opts := models.QueryOptions{}
+	opts := domainModels.QueryOptions{}
 	if limitStr := c.Query("limit"); limitStr != "" {
 		if limit, err := strconv.Atoi(limitStr); err == nil {
 			opts.Limit = limit
