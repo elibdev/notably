@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/elibdev/notably/pkg/server"
+	"github.com/elibdev/notably/backend/pkg/server"
 )
 
 func main() {

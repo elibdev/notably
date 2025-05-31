@@ -1,0 +1,768 @@
+basePath: /
+consumes:
+    - application/json
+definitions:
+    ColumnDefinition:
+        description: ColumnDefinition represents a column in a table with its type
+        properties:
+            dataType:
+                type: string
+                x-go-name: DataType
+            name:
+                type: string
+                x-go-name: Name
+        type: object
+        x-go-package: github.com/elibdev/notably/dynamo
+    RowData:
+        properties:
+            id:
+                description: The unique ID of the row.
+                example: row_2MmjfABCkZ9XyY3jH9wE8xLgP7bA
+                type: string
+                x-go-name: ID
+            timestamp:
+                description: Timestamp of when the row was last modified or created.
+                example: "2023-01-01T12:05:00Z"
+                format: date-time
+                type: string
+                x-go-name: Timestamp
+            values:
+                additionalProperties: {}
+                description: Key-value pairs representing the row data.
+                example:
+                    completed: false
+                    name: Task 1
+                    priority: 1
+                type: object
+                x-go-name: Values
+        title: RowData represents a data row within a table.
+        type: object
+        x-go-package: github.com/elibdev/notably/pkg/server
+    RowEvent:
+        properties:
+            eventType:
+                description: The type of event (e.g., "INSERT", "UPDATE", "DELETE").
+                example: INSERT
+                type: string
+                x-go-name: EventType
+            id:
+                description: The ID of the row this event pertains to.
+                example: row_2MmjfABCkZ9XyY3jH9wE8xLgP7bA
+                type: string
+                x-go-name: ID
+            timestamp:
+                description: Timestamp of the event.
+                example: "2023-01-01T12:05:00Z"
+                format: date-time
+                type: string
+                x-go-name: Timestamp
+            values:
+                additionalProperties: {}
+                description: Key-value pairs representing the row data at the time of this event.
+                example:
+                    completed: false
+                    name: Task 1
+                type: object
+                x-go-name: Values
+        title: RowEvent represents a single change event for a row.
+        type: object
+        x-go-package: github.com/elibdev/notably/pkg/server
+    TableInfo:
+        properties:
+            columns:
+                description: Column definitions for the table.
+                items:
+                    $ref: '#/definitions/ColumnDefinition'
+                type: array
+                x-go-name: Columns
+            createdAt:
+                description: Timestamp of table creation.
+                example: "2023-01-01T12:00:00Z"
+                format: date-time
+                type: string
+                x-go-name: CreatedAt
+            name:
+                description: The name of the table.
+                example: my_tasks_table
+                type: string
+                x-go-name: Name
+        required:
+            - name
+        title: TableInfo represents metadata for a user table.
+        type: object
+        x-go-package: github.com/elibdev/notably/pkg/server
+    apiKeyInfo:
+        properties:
+            createdAt:
+                example: "2023-01-01T12:00:00Z"
+                format: date-time
+                type: string
+                x-go-name: CreatedAt
+            expiresAt:
+                example: "2024-01-01T12:00:00Z"
+                format: date-time
+                type: string
+                x-go-name: ExpiresAt
+            id:
+                example: key_2Mmjf6KkZ9XyY3jH9wE8xLgP7bA
+                type: string
+                x-go-name: ID
+            lastUsed:
+                example: "2023-01-10T10:30:00Z"
+                format: date-time
+                type: string
+                x-go-name: LastUsed
+            name:
+                example: My Test Key
+                type: string
+                x-go-name: Name
+            revoked:
+                type: boolean
+                x-go-name: Revoked
+        title: APIKeyInfo represents information about an API key (excluding the key itself).
+        type: object
+        x-go-name: APIKeyInfo
+        x-go-package: github.com/elibdev/notably/pkg/server
+host: localhost:8080
+info:
+    contact:
+        email: dev@elib.dev
+    description: This is the API for the Notably service, providing a versioned database with user authentication and API key management.
+    title: Notable API
+    version: 1.0.0
+paths:
+    /auth/keys:
+        get:
+            description: |-
+                auth
+                Summary: List API keys
+                Description: Retrieves a list of API keys for the authenticated user.
+            operationId: listAPIKeys
+            produces:
+                - application/json
+            responses:
+                "200":
+                    $ref: '#/responses/listAPIKeysResponse'
+                "401":
+                    $ref: '#/responses/errorResponse'
+                "500":
+                    $ref: '#/responses/errorResponse'
+            security:
+                - APIKeyAuth:
+                    - '[]'
+            summary: 'Tags:'
+            tags:
+                - auth
+        post:
+            consumes:
+                - application/json
+            description: |-
+                auth
+                Summary: Create API key
+                Description: Generates a new API key for the authenticated user.
+            operationId: createAPIKey
+            parameters:
+                - in: body
+                  name: Body
+                  schema:
+                    properties:
+                        expiresIn:
+                            description: |-
+                                Duration for which the key is valid (e.g., "24h", "720h").
+                                Defaults to a long duration if not specified.
+                            example: 720h
+                            type: string
+                            x-go-name: ExpiresIn
+                        name:
+                            description: A descriptive name for the API key.
+                            example: My Web App Key
+                            type: string
+                            x-go-name: Name
+                    required:
+                        - name
+                    type: object
+                - {}
+            produces:
+                - application/json
+            responses:
+                "201":
+                    $ref: '#/responses/createAPIKeyResponse'
+                "400":
+                    $ref: '#/responses/errorResponse'
+                "401":
+                    $ref: '#/responses/errorResponse'
+                "500":
+                    $ref: '#/responses/errorResponse'
+            security:
+                - APIKeyAuth:
+                    - '[]'
+            summary: 'Tags:'
+            tags:
+                - auth
+    /auth/keys/{id}:
+        delete:
+            description: |-
+                auth
+                Summary: Revoke API key
+                Description: Revokes a specific API key for the authenticated user.
+            operationId: revokeAPIKey
+            parameters:
+                - description: The ID of the API key to revoke.
+                  example: key_2Mmjf6KkZ9XyY3jH9wE8xLgP7bA
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: ID
+                - {}
+            produces:
+                - application/json
+            responses:
+                "200":
+                    $ref: '#/responses/revokeAPIKeyResponse'
+                "400":
+                    $ref: '#/responses/errorResponse'
+                "401":
+                    $ref: '#/responses/errorResponse'
+                "404":
+                    $ref: '#/responses/errorResponse'
+                "500":
+                    $ref: '#/responses/errorResponse'
+            security:
+                - APIKeyAuth:
+                    - '[]'
+            summary: 'Tags:'
+            tags:
+                - auth
+    /auth/login:
+        post:
+            consumes:
+                - application/json
+            description: |-
+                auth
+                Summary: Log in a user
+                Description: Authenticates a user and returns a token.
+            operationId: loginUser
+            parameters:
+                - in: body
+                  name: Body
+                  schema:
+                    properties:
+                        email:
+                            example: user@example.com
+                            type: string
+                            x-go-name: Email
+                        password:
+                            example: securepassword123
+                            type: string
+                            x-go-name: Password
+                    required:
+                        - email
+                        - password
+                    type: object
+                - {}
+            produces:
+                - application/json
+            responses:
+                "200":
+                    $ref: '#/responses/loginResponse'
+                "400":
+                    $ref: '#/responses/errorResponse'
+                "401":
+                    $ref: '#/responses/errorResponse'
+                "500":
+                    $ref: '#/responses/errorResponse'
+            summary: 'Tags:'
+            tags:
+                - auth
+    /auth/register:
+        post:
+            consumes:
+                - application/json
+            description: |-
+                auth
+                Summary: Register a new user
+                Description: Creates a new user account.
+            operationId: registerUser
+            parameters:
+                - in: body
+                  name: Body
+                  schema:
+                    properties:
+                        email:
+                            example: user@example.com
+                            type: string
+                            x-go-name: Email
+                        password:
+                            example: securepassword123
+                            type: string
+                            x-go-name: Password
+                        username:
+                            example: testuser
+                            type: string
+                            x-go-name: Username
+                    required:
+                        - username
+                        - email
+                        - password
+                    type: object
+                - {}
+            produces:
+                - application/json
+            responses:
+                "201":
+                    $ref: '#/responses/registerResponse'
+                "400":
+                    $ref: '#/responses/errorResponse'
+                "500":
+                    $ref: '#/responses/errorResponse'
+            summary: 'Tags:'
+            tags:
+                - auth
+    /health:
+        get:
+            description: |-
+                health
+                Summary: Perform a health check
+                Description: Returns the health status of the API.
+            operationId: healthCheck
+            produces:
+                - application/json
+            responses:
+                "200":
+                    $ref: '#/responses/healthResponse'
+                default:
+                    $ref: '#/responses/errorResponse'
+            summary: 'Tags:'
+            tags:
+                - health
+    /tables:
+        get:
+            description: |-
+                tables
+                Summary: List tables
+                Description: Retrieves a list of all data tables for the authenticated user.
+            operationId: listTables
+            produces:
+                - application/json
+            responses:
+                "200":
+                    $ref: '#/responses/listTablesResponse'
+                "401":
+                    $ref: '#/responses/errorResponse'
+                "500":
+                    $ref: '#/responses/errorResponse'
+            security:
+                - APIKeyAuth:
+                    - '[]'
+            summary: 'Tags:'
+            tags:
+                - tables
+        post:
+            consumes:
+                - application/json
+            description: |-
+                tables
+                Summary: Create a new table
+                Description: Creates a new data table for the authenticated user.
+            operationId: createTable
+            parameters:
+                - in: body
+                  name: Body
+                  schema:
+                    properties:
+                        columns:
+                            description: Optional list of column definitions.
+                            items:
+                                $ref: '#/definitions/ColumnDefinition'
+                            type: array
+                            x-go-name: Columns
+                        name:
+                            description: Name of the table.
+                            example: my_todos
+                            type: string
+                            x-go-name: Name
+                    required:
+                        - name
+                    type: object
+                - {}
+            produces:
+                - application/json
+            responses:
+                "201":
+                    description: TableInfo
+                    schema:
+                        $ref: '#/definitions/TableInfo'
+                "400":
+                    $ref: '#/responses/errorResponse'
+                "401":
+                    $ref: '#/responses/errorResponse'
+                "500":
+                    $ref: '#/responses/errorResponse'
+            security:
+                - APIKeyAuth:
+                    - '[]'
+            summary: 'Tags:'
+            tags:
+                - tables
+    /tables/{table}/history:
+        get:
+            description: |-
+                table-data
+                Summary: Get table history
+                Description: Retrieves the history of row changes for the specified table within a time range.
+            operationId: tableHistory
+            parameters:
+                - description: Name of the table.
+                  example: my_todos
+                  in: path
+                  name: table
+                  required: true
+                  type: string
+                  x-go-name: Table
+                - description: Reference to table name path parameter.
+                  example: "2023-01-01T00:00:00Z"
+                  in: query
+                  name: start
+                  required: true
+                  type: string
+                  x-go-name: Start
+                - description: End time for history query (RFC3339).
+                  example: "2023-01-02T00:00:00Z"
+                  in: query
+                  name: end
+                  type: string
+                  x-go-name: End
+                - description: 'Optional: Limit the number of history events returned.'
+                  example: 100
+                  format: int64
+                  in: query
+                  name: limit
+                  type: integer
+                  x-go-name: Limit
+                - {}
+            produces:
+                - application/json
+            responses:
+                "200":
+                    $ref: '#/responses/tableHistoryResponse'
+                "400":
+                    $ref: '#/responses/errorResponse'
+                "401":
+                    $ref: '#/responses/errorResponse'
+                "404":
+                    $ref: '#/responses/errorResponse'
+                "500":
+                    $ref: '#/responses/errorResponse'
+            security:
+                - APIKeyAuth:
+                    - '[]'
+            summary: 'Tags:'
+            tags:
+                - table-data
+    /tables/{table}/rows:
+        get:
+            description: |-
+                table-data
+                Summary: List rows in a table
+                Description: Retrieves all data rows from the specified table.
+            operationId: listRows
+            parameters:
+                - description: Name of the table.
+                  example: my_todos
+                  in: path
+                  name: table
+                  required: true
+                  type: string
+                  x-go-name: Table
+                - {}
+            produces:
+                - application/json
+            responses:
+                "200":
+                    $ref: '#/responses/listRowsResponse'
+                "401":
+                    $ref: '#/responses/errorResponse'
+                "404":
+                    $ref: '#/responses/errorResponse'
+                "500":
+                    $ref: '#/responses/errorResponse'
+            security:
+                - APIKeyAuth:
+                    - '[]'
+            summary: 'Tags:'
+            tags:
+                - table-data
+        post:
+            consumes:
+                - application/json
+            description: |-
+                table-data
+                Summary: Create a new row
+                Description: Adds a new data row to the specified table.
+            operationId: createRow
+            parameters:
+                - description: Name of the table.
+                  example: my_todos
+                  in: path
+                  name: table
+                  required: true
+                  type: string
+                  x-go-name: Table
+                - description: Reference to table name path parameter.
+                  in: body
+                  name: Body
+                  required: true
+                  schema:
+                    properties:
+                        values:
+                            additionalProperties: {}
+                            description: Key-value pairs for the row data.
+                            example:
+                                name: Task 1
+                                priority: 1
+                                status: pending
+                            type: object
+                            x-go-name: Values
+                    required:
+                        - values
+                    type: object
+                - {}
+            produces:
+                - application/json
+            responses:
+                "201":
+                    description: RowData
+                    schema:
+                        $ref: '#/definitions/RowData'
+                "400":
+                    $ref: '#/responses/errorResponse'
+                "401":
+                    $ref: '#/responses/errorResponse'
+                "404":
+                    $ref: '#/responses/errorResponse'
+                "500":
+                    $ref: '#/responses/errorResponse'
+            security:
+                - APIKeyAuth:
+                    - '[]'
+            summary: 'Tags:'
+            tags:
+                - table-data
+    /tables/{table}/rows/{id}:
+        put:
+            consumes:
+                - application/json
+            description: |-
+                table-data
+                Summary: Update a row
+                Description: Updates an existing data row in the specified table.
+            operationId: updateRow
+            parameters:
+                - description: ID of the row.
+                  example: row_2MmjfABCkZ9XyY3jH9wE8xLgP7bA
+                  in: path
+                  name: id
+                  required: true
+                  type: string
+                  x-go-name: ID
+                - description: Reference to table name path parameter.
+                  in: body
+                  name: Body
+                  required: true
+                  schema:
+                    properties:
+                        values:
+                            additionalProperties: {}
+                            description: Key-value pairs for the row data to update.
+                            example:
+                                priority: 2
+                                status: completed
+                            type: object
+                            x-go-name: Values
+                    required:
+                        - values
+                    type: object
+                - {}
+            produces:
+                - application/json
+            responses:
+                "200":
+                    description: RowData
+                    schema:
+                        $ref: '#/definitions/RowData'
+                "400":
+                    $ref: '#/responses/errorResponse'
+                "401":
+                    $ref: '#/responses/errorResponse'
+                "404":
+                    $ref: '#/responses/errorResponse'
+                "500":
+                    $ref: '#/responses/errorResponse'
+            security:
+                - APIKeyAuth:
+                    - '[]'
+            summary: 'Tags:'
+            tags:
+                - table-data
+    /tables/{table}/snapshot:
+        get:
+            description: |-
+                table-data
+                Summary: Get table snapshot
+                Description: Retrieves a snapshot of all current rows in the specified table.
+            operationId: tableSnapshot
+            parameters:
+                - description: Name of the table.
+                  example: my_todos
+                  in: path
+                  name: table
+                  required: true
+                  type: string
+                  x-go-name: Table
+                - {}
+            produces:
+                - application/json
+            responses:
+                "200":
+                    $ref: '#/responses/tableSnapshotResponse'
+                "401":
+                    $ref: '#/responses/errorResponse'
+                "404":
+                    $ref: '#/responses/errorResponse'
+                "500":
+                    $ref: '#/responses/errorResponse'
+            security:
+                - APIKeyAuth:
+                    - '[]'
+            summary: 'Tags:'
+            tags:
+                - table-data
+produces:
+    - application/json
+responses:
+    createAPIKeyResponse:
+        description: createAPIKeyResponse is the response for creating an API key.
+        headers:
+            apiKey:
+                description: The generated API key. Store this securely, it will not be shown again.
+                example: sk_abcdef1234567890abcdef1234567890
+                type: string
+            info:
+                description: Information about the created key.
+        schema:
+            $ref: '#/definitions/apiKeyInfo'
+    errorResponse:
+        description: errorResponse is the standard JSON error response.
+        headers:
+            error:
+                description: The error message.
+                example: Invalid input
+                type: string
+    healthResponse:
+        description: HealthResponse is the response for the health check.
+        headers:
+            service:
+                description: Name of the service.
+                example: notably-api
+                type: string
+            status:
+                description: Status of the service.
+                example: healthy
+                type: string
+    listAPIKeysResponse:
+        description: listAPIKeysResponse is the response for listing API keys.
+        headers:
+            keys:
+                items:
+                    $ref: '#/definitions/apiKeyInfo'
+                type: array
+    listRowsResponse:
+        description: listRowsResponse is the response for listing rows in a table.
+        headers:
+            rows:
+                items:
+                    $ref: '#/definitions/RowData'
+                type: array
+    listTablesResponse:
+        description: listTablesResponse is the response for listing tables.
+        headers:
+            tables:
+                items:
+                    $ref: '#/definitions/TableInfo'
+                type: array
+    loginResponse:
+        description: loginResponse is the response for successful user login.
+        headers:
+            email:
+                example: user@example.com
+                type: string
+            token:
+                description: The authentication token (JWT or similar, though here it's a placeholder).
+                example: auth_token_string
+                type: string
+            userID:
+                example: user_2Mmjf6KkZ9XyY3jH9wE8xLgP7bA
+                type: string
+    registerResponse:
+        description: registerResponse is the response for successful user registration.
+        headers:
+            email:
+                example: user@example.com
+                type: string
+            userID:
+                description: The ID of the registered user.
+                example: user_2Mmjf6KkZ9XyY3jH9wE8xLgP7bA
+                type: string
+            username:
+                example: testuser
+                type: string
+    revokeAPIKeyResponse:
+        description: revokeAPIKeyResponse is the response for revoking an API key.
+        headers:
+            keyID:
+                description: The ID of the revoked key.
+                example: key_2Mmjf6KkZ9XyY3jH9wE8xLgP7bA
+                type: string
+            message:
+                description: Message confirming the revocation.
+                example: API key revoked successfully
+                type: string
+    tableHistoryResponse:
+        description: tableHistoryResponse is the response for table history.
+        headers:
+            events:
+                description: List of row events in the specified time range.
+                items:
+                    $ref: '#/definitions/RowEvent'
+                type: array
+            tableName:
+                description: The name of the table.
+                example: my_todos
+                type: string
+    tableSnapshotResponse:
+        description: tableSnapshotResponse is the response for a table snapshot.
+        headers:
+            rows:
+                description: All rows in the table at the snapshot time.
+                items:
+                    $ref: '#/definitions/RowData'
+                type: array
+            snapshotTime:
+                description: Timestamp of when the snapshot was taken.
+                example: "2023-01-01T12:10:00Z"
+                format: date-time
+                type: string
+            tableName:
+                description: The name of the table.
+                example: my_todos
+                type: string
+schemes:
+    - http
+securityDefinitions:
+    APIKeyAuth:
+        description: Enter your API key in the format 'Bearer <key>'
+        in: header
+        name: Authorization
+        type: apiKey
+swagger: "2.0"

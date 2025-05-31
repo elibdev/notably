@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/elibdev/notably/backend/pkg/server"
 	"github.com/elibdev/notably/dynamo"
-	"github.com/elibdev/notably/pkg/server"
 	"github.com/elibdev/notably/testutil/dynamotest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

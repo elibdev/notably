@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/elibdev/notably/internal/dynamo"
+	"github.com/elibdev/notably/backend/internal/dynamo"
 )
 
 // StoreAdapter adapts our new Store interface to work with the existing API
