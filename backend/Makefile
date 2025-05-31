@@ -1,4 +1,4 @@
-.PHONY: build run test clean docker-build docker-run setup-local api-example
+.PHONY: build run test clean docker-build docker-run services api-example
 
 # Go commands
 build:
@@ -28,40 +28,11 @@ docker-run: docker-build
 	docker compose up -d
 
 # Development setup
-setup-local:
-	@if [ ! "$$(docker ps -q -f name=dynamodb-local)" ]; then \
-		if [ "$$(docker ps -aq -f name=dynamodb-local)" ]; then \
-			echo "🛠️  Starting existing DynamoDB container..."; \
-			docker start dynamodb-local; \
-		else \
-			echo "🚀 Creating new DynamoDB container..."; \
-			docker run -d --name dynamodb-local -p 8000:8000 amazon/dynamodb-local; \
-		fi \
-	else \
-		echo "✅ DynamoDB container already running."; \
-	fi
-	sleep 5
-	# Example AWS CLI to create table manually (edit as needed):
-	# aws dynamodb create-table \
-	#   --table-name timedb \
-	#   --attribute-definitions \
-	#     AttributeName=PK,AttributeType=S \
-	#     AttributeName=SK,AttributeType=S \
-	#     AttributeName=GSI1PK,AttributeType=S \
-	#     AttributeName=GSI1SK,AttributeType=S \
-	#   --key-schema \
-	#     AttributeName=PK,KeyType=HASH \
-	#     AttributeName=SK,KeyType=RANGE \
-	#   --global-secondary-indexes \
-	#     "IndexName=GSI1,KeySchema=[{AttributeName=GSI1PK,KeyType=HASH},{AttributeName=GSI1SK,KeyType=RANGE}],Projection={ProjectionType=ALL},ProvisionedThroughput={ReadCapacityUnits=5,WriteCapacityUnits=5}" \
-	#   --billing-mode PROVISIONED \
-	#   --endpoint-url http://localhost:8000
-
-setup-full: setup-local
+services:
 	docker compose up -d
 
 # API testing
-api-example: setup-full
+api-example: services
 	sleep 10
 	go run examples/api_usage.go
 
@@ -73,7 +44,7 @@ ready-check:
 	curl -f http://localhost:8080/ready || exit 1
 
 # Development workflow
-dev: clean setup-full
+dev: clean services
 	@echo "🚀 TimeDB development environment ready!"
 	@echo "📊 DynamoDB Admin: http://localhost:8001"
 	@echo "🔗 API Server: http://localhost:8080"
