@@ -288,7 +288,7 @@ func TestIsValidEntityID(t *testing.T) {
 	}{
 		{"valid ULID 1", validULIDs[0], true},
 		{"valid ULID 2", validULIDs[1], true},
-		{"known valid ULID", "01HZYX987654321ZYXWVUTSRQP", true},
+		{"known valid ULID", "01HZYX987654321ZYXWVSTRSQP", true},
 		{"too short", "01HZYX98765", false},
 		{"too long", "01HZYX987654321ZYXWVUTSRQPXX", false},
 		{"invalid characters", "01HZYX987654321ZYXWVUTSRQI", false}, // Contains 'I'

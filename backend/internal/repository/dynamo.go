@@ -365,17 +365,17 @@ func (r *DynamoUserRepository) CreateEntity(ctx context.Context, tableID string,
 		return nil, err
 	}
 
-	// Store the creation tuple
-	tuple := &models.Tuple{
-		EntityID:  entityID,
-		TableID:   tableID,
-		Operation: "CREATE",
-		Fields:    fields,
-		Timestamp: now,
-		UserID:    r.userID,
+	// Store creation tuples for each field
+	for fieldName, value := range fields {
+		tuple := models.NewTuple(r.userID, entityID, now, tableID, fieldName, value)
+		if err := r.storeTuple(ctx, &tuple); err != nil {
+			return nil, err
+		}
 	}
 
-	if err := r.storeTuple(ctx, tuple); err != nil {
+	// Store system creation marker
+	creationTuple := models.NewTuple(r.userID, entityID, now, tableID, models.SystemFieldCreated, "true")
+	if err := r.storeTuple(ctx, &creationTuple); err != nil {
 		return nil, err
 	}
 
@@ -421,7 +421,7 @@ func (r *DynamoUserRepository) GetAllEntities(ctx context.Context, tableID strin
 
 	// This is a simplified implementation
 	// In practice, you'd want to use GSIs for efficient querying
-	entities := []models.EntitySnapshot{}
+	entities := make(map[string]models.EntitySnapshot)
 
 	return &models.EntitiesSnapshot{
 		TableID:   tableID,
@@ -457,18 +457,12 @@ func (r *DynamoUserRepository) UpdateEntity(ctx context.Context, tableID string,
 		return nil, err
 	}
 
-	// Store the update tuple
-	tuple := &models.Tuple{
-		EntityID:  entityID,
-		TableID:   tableID,
-		Operation: "UPDATE",
-		Fields:    fields,
-		Timestamp: now,
-		UserID:    r.userID,
-	}
-
-	if err := r.storeTuple(ctx, tuple); err != nil {
-		return nil, err
+	// Store update tuples for each field
+	for fieldName, value := range fields {
+		tuple := models.NewTuple(r.userID, entityID, now, tableID, fieldName, value)
+		if err := r.storeTuple(ctx, &tuple); err != nil {
+			return nil, err
+		}
 	}
 
 	return updated, nil
@@ -490,15 +484,8 @@ func (r *DynamoUserRepository) DeleteEntity(ctx context.Context, tableID string,
 		return err
 	}
 
-	tuple := &models.Tuple{
-		EntityID:  entityID,
-		TableID:   tableID,
-		Operation: "DELETE",
-		Timestamp: now,
-		UserID:    r.userID,
-	}
-
-	return r.storeTuple(ctx, tuple)
+	deletionTuple := models.NewTuple(r.userID, entityID, now, tableID, models.SystemFieldDeleted, "true")
+	return r.storeTuple(ctx, &deletionTuple)
 }
 
 // UndeleteEntity restores a deleted entity
@@ -517,15 +504,8 @@ func (r *DynamoUserRepository) UndeleteEntity(ctx context.Context, tableID strin
 		return err
 	}
 
-	tuple := &models.Tuple{
-		EntityID:  entityID,
-		TableID:   tableID,
-		Operation: "UNDELETE",
-		Timestamp: now,
-		UserID:    r.userID,
-	}
-
-	return r.storeTuple(ctx, tuple)
+	undeletionTuple := models.NewTuple(r.userID, entityID, now, tableID, models.SystemFieldDeleted, "false")
+	return r.storeTuple(ctx, &undeletionTuple)
 }
 
 // DeleteField removes a field from an entity
@@ -543,16 +523,9 @@ func (r *DynamoUserRepository) DeleteField(ctx context.Context, tableID string, 
 		return err
 	}
 
-	tuple := &models.Tuple{
-		EntityID:  entityID,
-		TableID:   tableID,
-		Operation: "DELETE_FIELD",
-		FieldName: fieldName,
-		Timestamp: now,
-		UserID:    r.userID,
-	}
-
-	return r.storeTuple(ctx, tuple)
+	// Create a deletion tuple for the field (empty value indicates deletion)
+	deletionTuple := models.NewTuple(r.userID, entityID, now, tableID, fieldName, "")
+	return r.storeTuple(ctx, &deletionTuple)
 }
 
 // GetFieldHistory retrieves history for a specific field

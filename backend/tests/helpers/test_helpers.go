@@ -51,8 +51,7 @@ func SetupTestRepository(t *testing.T, userManager repository.UserManager, userI
 		t.Logf("User creation failed (might already exist): %v", err)
 	}
 
-	repo, err := userManager.GetUserRepository(userID)
-	require.NoError(t, err)
+	repo := userManager.GetUserRepository(userID)
 
 	return repo
 }
@@ -76,7 +75,6 @@ func CreateTestTables(t *testing.T, repo repository.UserRepository) (contacts, n
 
 // PopulateTestData adds sample data to the repository
 func PopulateTestData(t *testing.T, repo repository.UserRepository) {
-	ctx := context.Background()
 	userID := getUserIDFromRepo(repo)
 
 	// Create tables first

@@ -94,7 +94,11 @@ func EncodeValue(value interface{}) (string, error) {
 	case bool:
 		return strconv.FormatBool(v), nil
 	case time.Time:
-		return v.Format(time.RFC3339), nil
+		jsonBytes, err := json.Marshal(v)
+		if err != nil {
+			return "", fmt.Errorf("failed to encode time value: %w", err)
+		}
+		return string(jsonBytes), nil
 	default:
 		// For complex types (slices, maps, etc.), use JSON encoding
 		jsonBytes, err := json.Marshal(value)
@@ -144,12 +148,7 @@ func IsSystemField(fieldName string) bool {
 	return fieldName == SystemFieldDeleted || fieldName == SystemFieldCreated
 }
 
-// TableSnapshot represents a point-in-time view of all entities in a table
-type TableSnapshot struct {
-	TableID   string                      `json:"table_id"`
-	Entities  map[string]EntitySnapshot   `json:"entities"`
-	Timestamp time.Time                   `json:"timestamp"`
-}
+
 
 // GetUserIDFromPK extracts user ID from a partition key
 func GetUserIDFromPK(pk string) string {

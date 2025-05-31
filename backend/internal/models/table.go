@@ -35,14 +35,8 @@ type TableSchema struct {
 	SK        string            `json:"sk"`  // Sort key: TABLE#{tableID}
 }
 
-// TableHistory represents historical changes to a table
-type TableHistory struct {
-	TableID string  `json:"table_id"`
-	Changes []Tuple `json:"changes"`
-}
-
-// Tuple represents a single change event in the time-series data
-type Tuple struct {
+// ChangeEvent represents a single change event in the time-series data
+type ChangeEvent struct {
 	EntityID  string                 `json:"entity_id"`
 	TableID   string                 `json:"table_id"`
 	Operation string                 `json:"operation"` // CREATE, UPDATE, DELETE, UNDELETE

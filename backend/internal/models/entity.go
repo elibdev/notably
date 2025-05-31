@@ -37,6 +37,12 @@ type EntityHistory struct {
 	Tuples   []Tuple `json:"tuples"`
 }
 
+// TableHistory represents historical changes to a table
+type TableHistory struct {
+	TableID string  `json:"table_id"`
+	Changes []Tuple `json:"changes"`
+}
+
 // FieldHistory represents changes to a specific field across entities
 type FieldHistory struct {
 	TableID   string        `json:"table_id"`
