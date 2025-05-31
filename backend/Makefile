@@ -29,9 +29,33 @@ docker-run: docker-build
 
 # Development setup
 setup-local:
-	docker compose -f scripts/setup-dynamodb/docker-compose.yml up -d
+	@if [ ! "$$(docker ps -q -f name=dynamodb-local)" ]; then \
+		if [ "$$(docker ps -aq -f name=dynamodb-local)" ]; then \
+			echo "🛠️  Starting existing DynamoDB container..."; \
+			docker start dynamodb-local; \
+		else \
+			echo "🚀 Creating new DynamoDB container..."; \
+			docker run -d --name dynamodb-local -p 8000:8000 amazon/dynamodb-local; \
+		fi \
+	else \
+		echo "✅ DynamoDB container already running."; \
+	fi
 	sleep 5
-	go run scripts/setup-dynamodb/main.go -env local -table timedb
+	# Example AWS CLI to create table manually (edit as needed):
+	# aws dynamodb create-table \
+	#   --table-name timedb \
+	#   --attribute-definitions \
+	#     AttributeName=PK,AttributeType=S \
+	#     AttributeName=SK,AttributeType=S \
+	#     AttributeName=GSI1PK,AttributeType=S \
+	#     AttributeName=GSI1SK,AttributeType=S \
+	#   --key-schema \
+	#     AttributeName=PK,KeyType=HASH \
+	#     AttributeName=SK,KeyType=RANGE \
+	#   --global-secondary-indexes \
+	#     "IndexName=GSI1,KeySchema=[{AttributeName=GSI1PK,KeyType=HASH},{AttributeName=GSI1SK,KeyType=RANGE}],Projection={ProjectionType=ALL},ProvisionedThroughput={ReadCapacityUnits=5,WriteCapacityUnits=5}" \
+	#   --billing-mode PROVISIONED \
+	#   --endpoint-url http://localhost:8000
 
 setup-full: setup-local
 	docker compose up -d
@@ -70,7 +94,22 @@ format:
 
 # Database operations
 db-setup:
-	go run scripts/setup-dynamodb/main.go
+	@echo "Run the following AWS CLI to create the table manually:"
+	@echo ""
+	@echo "aws dynamodb create-table \\"
+	@echo "  --table-name timedb \\"
+	@echo "  --attribute-definitions \\"
+	@echo "    AttributeName=PK,AttributeType=S \\"
+	@echo "    AttributeName=SK,AttributeType=S \\"
+	@echo "    AttributeName=GSI1PK,AttributeType=S \\"
+	@echo "    AttributeName=GSI1SK,AttributeType=S \\"
+	@echo "  --key-schema \\"
+	@echo "    AttributeName=PK,KeyType=HASH \\"
+	@echo "    AttributeName=SK,KeyType=RANGE \\"
+	@echo "  --global-secondary-indexes \\"
+	@echo '    IndexName=GSI1,KeySchema=[{AttributeName=GSI1PK,KeyType=HASH},{AttributeName=GSI1SK,KeyType=RANGE}],Projection={ProjectionType=ALL},ProvisionedThroughput={ReadCapacityUnits=5,WriteCapacityUnits=5}'
+	@echo "  --billing-mode PROVISIONED \\"
+	@echo "  --endpoint-url http://localhost:8000"
 
 db-migrate:
 	@echo "Running database migrations..."
