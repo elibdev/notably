@@ -18,9 +18,16 @@ type EntitySnapshot struct {
 
 // EntitiesSnapshot represents a collection of entities at a specific point in time
 type EntitiesSnapshot struct {
-	TableID   string           `json:"table_id"`
-	Entities  []EntitySnapshot `json:"entities"`
-	Timestamp time.Time        `json:"timestamp"`
+	TableID   string                      `json:"table_id"`
+	Entities  map[string]EntitySnapshot   `json:"entities"`
+	Timestamp time.Time                   `json:"timestamp"`
+}
+
+// TableSnapshot represents a point-in-time view of all entities in a table
+type TableSnapshot struct {
+	TableID   string                      `json:"table_id"`
+	Entities  map[string]EntitySnapshot   `json:"entities"`
+	Timestamp time.Time                   `json:"timestamp"`
 }
 
 // EntityHistory represents the complete history of changes to an entity
