@@ -154,3 +154,20 @@ func (s *Server) setupRoutes() {
 	s.router.Static("/docs", "./docs/swagger")
 	s.router.GET("/openapi.json", handlers.OpenAPISpec)
 }
+
+// Testing helper methods
+
+// SetupRouter initializes the router for testing
+func (s *Server) SetupRouter() {
+	s.setupRouter()
+}
+
+// SetupRoutes configures all routes for testing
+func (s *Server) SetupRoutes() {
+	s.setupRoutes()
+}
+
+// GetHandler returns the HTTP handler for testing
+func (s *Server) GetHandler() http.Handler {
+	return s.router
+}
