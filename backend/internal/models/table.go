@@ -31,6 +31,8 @@ type TableSchema struct {
 	Fields    []FieldDefinition `json:"fields"`
 	CreatedAt time.Time         `json:"created_at"`
 	UpdatedAt time.Time         `json:"updated_at"`
+	PK        string            `json:"pk"`  // Partition key: USER#{userID}
+	SK        string            `json:"sk"`  // Sort key: TABLE#{tableID}
 }
 
 // TableHistory represents historical changes to a table
@@ -59,6 +61,48 @@ func (dt DataType) IsValid() bool {
 	default:
 		return false
 	}
+}
+
+// NewTableSchema creates a new table schema with the given parameters
+func NewTableSchema(userID, tableID string, fields []FieldDefinition) TableSchema {
+	now := time.Now()
+	return TableSchema{
+		ID:        tableID,
+		UserID:    userID,
+		Fields:    fields,
+		CreatedAt: now,
+		UpdatedAt: now,
+		PK:        "USER#" + userID,
+		SK:        "TABLE#" + tableID,
+	}
+}
+
+// GetField returns a field definition by name
+func (ts *TableSchema) GetField(fieldName string) (*FieldDefinition, bool) {
+	for i := range ts.Fields {
+		if ts.Fields[i].Name == fieldName {
+			return &ts.Fields[i], true
+		}
+	}
+	return nil, false
+}
+
+// AddField adds a new field to the table schema
+func (ts *TableSchema) AddField(field FieldDefinition) {
+	ts.Fields = append(ts.Fields, field)
+	ts.UpdatedAt = time.Now()
+}
+
+// RemoveField removes a field from the table schema by name
+func (ts *TableSchema) RemoveField(fieldName string) bool {
+	for i, field := range ts.Fields {
+		if field.Name == fieldName {
+			ts.Fields = append(ts.Fields[:i], ts.Fields[i+1:]...)
+			ts.UpdatedAt = time.Now()
+			return true
+		}
+	}
+	return false
 }
 
 // ValidateFields checks if all field definitions are valid
