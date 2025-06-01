@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // Example API usage
@@ -13,11 +15,11 @@ func main() {
 	baseURL := "http://localhost:8080/api/v1"
 
 	// 1. Register a user (with unique ID to avoid conflicts)
-	userID := fmt.Sprintf("user_%d", time.Now().UnixNano())
+	userID := fmt.Sprintf("user_%s", uuid.New().String())
 	registerReq := map[string]interface{}{
 		"user_id":  userID,
 		"password": "secure_password",
-		"email":    fmt.Sprintf("user_%d@example.com", time.Now().UnixNano()),
+		"email":    fmt.Sprintf("user_%s@example.com", uuid.New().String()),
 	}
 
 	authResp, err := makeRequest("POST", baseURL+"/auth/register", registerReq, "")

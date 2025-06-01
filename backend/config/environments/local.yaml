@@ -2,7 +2,7 @@ database:
   provider: "dynamodb"
   table_name: "timedb"
   region: "us-east-1"
-  endpoint_url: "http://localhost:8000"
+  endpoint_url: "http://dynamodb-local:8000"
 
 server:
   port: 8080
