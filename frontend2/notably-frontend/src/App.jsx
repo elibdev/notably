@@ -2,8 +2,6 @@ import React from 'react';
 import {
   MantineProvider,
   AppShell,
-  Header,
-  Navbar,
   Text,
   Group,
   ActionIcon,
@@ -35,7 +33,6 @@ import {
   Timeline,
   Code,
   JsonInput,
-  Spotlight,
   rem,
   useMantineTheme,
 } from '@mantine/core';

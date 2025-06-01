@@ -72,17 +72,40 @@ See the [Testing Guidelines](backend/TESTING.md) for more details on using the `
 
 ## Frontend
 
-The frontend is a React + TypeScript application built with Vite and styled with Mantine UI components.
+The frontend is a modern React + TypeScript application built with Vite and styled with Mantine UI components. It provides a clean, responsive interface for managing dynamic data tables with full CRUD operations.
 
-To run the web frontend, navigate into the `frontend` directory and install dependencies:
+### Features
+
+- **User Authentication**: Secure login and registration system
+- **Dynamic Tables**: Create tables with custom fields (string, number, boolean, date, etc.)
+- **Entity Management**: Full CRUD operations for table entities
+- **History Tracking**: View changes and modifications over time
+- **Responsive Design**: Works seamlessly on desktop and mobile devices
+- **Soft Deletes**: Restore accidentally deleted entities
+
+### Quick Start
+
+Navigate to the frontend directory and install dependencies:
 
 ```bash
 cd frontend
 npm install
+```
+
+Copy the environment file and configure your API endpoint:
+
+```bash
+cp .env.example .env
+# Edit .env to set VITE_API_BASE_URL=http://localhost:8080
+```
+
+Start the development server:
+
+```bash
 npm run dev
 ```
 
-The frontend will be available at http://localhost:5173 and proxies API requests to http://localhost:8080.
+The frontend will be available at http://localhost:5173 and communicates with the backend API at http://localhost:8080.
 
 ### Development Scripts
 
@@ -90,35 +113,48 @@ The frontend will be available at http://localhost:5173 and proxies API requests
 - `npm run build` - Build for production 
 - `npm run preview` - Preview production build
 - `npm run lint` - Run ESLint
-- `npm run dev:all` - Start both frontend and backend concurrently
+- `npm run test` - Run tests in watch mode
+- `npm run test:run` - Run tests once (CI mode)
+
+### Tech Stack
+
+- **Framework**: React 19 with TypeScript
+- **Build Tool**: Vite 6
+- **UI Library**: Mantine v8
+- **Routing**: React Router v7
+- **Form Handling**: Mantine Form with validation
+- **Icons**: Tabler Icons
+- **Testing**: Vitest with React Testing Library
+- **State Management**: React Context API
 
 ### Testing
 
-The frontend uses Playwright for end-to-end testing with comprehensive test coverage:
+The frontend uses Vitest and React Testing Library for unit and integration testing:
 
 ```bash
-# Install Playwright browsers
-npm run test:install
-
 # Run all tests
 npm run test
 
-# Run tests in headed mode (with browser UI)
-npm run test:headed
+# Run tests once (for CI)
+npm run test:run
 
-# Run tests with debug mode
-npm run test:debug
-
-# Open Playwright UI for interactive testing
-npm run test:ui
-
-# Run specific test suites
-npm run test:auth          # Authentication tests
-npm run test:tables        # Table operations tests
-npm run test:history       # History snapshot tests
-npm run test:workflows     # Data workflow tests
-npm run test:accessibility # Accessibility tests
+# Run tests with coverage
+npm run test -- --coverage
 ```
+
+### Project Structure
+
+```
+frontend/src/
+├── components/          # Reusable UI components
+├── contexts/           # React Context providers
+├── pages/              # Main application pages
+├── services/           # API service layer
+├── types/              # TypeScript type definitions
+└── test/               # Test utilities and setup
+```
+
+See the [Frontend README](frontend/README.md) for detailed documentation.
 
 To set up the backend for local dev:
 
