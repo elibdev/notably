@@ -1516,8 +1516,6 @@ var SwaggerInfo = &swag.Spec{
 	Description:      "This is the Notably API server for managing time-series data and entities.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
-	LeftDelim:        "{{",
-	RightDelim:       "}}",
 }
 
 func init() {
