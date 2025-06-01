@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 
 	"github.com/elibdev/notably/internal/models"
 )
@@ -534,14 +535,27 @@ func (r *DynamoUserRepository) GetAllEntities(ctx context.Context, tableID strin
 		return nil, NewRepositoryError(ErrorTypeInternal, "failed to get all entities", err)
 	}
 
+	logrus.WithFields(logrus.Fields{
+		"table_id":     tableID,
+		"asOf":         asOf.Format(time.RFC3339),
+		"result_count": len(result.Items),
+	}).Debug("GetAllEntities query result")
+
 	// Group all snapshots by entity ID first
 	allSnapshots := make(map[string][]*models.EntitySnapshot)
 
 	for _, item := range result.Items {
 		entity, err := r.parseEntityFromItem(item)
 		if err != nil {
+			logrus.WithError(err).Debug("Failed to parse entity from item")
 			continue
 		}
+
+		logrus.WithFields(logrus.Fields{
+			"entity_id":  entity.EntityID,
+			"timestamp":  entity.Timestamp.Format(time.RFC3339),
+			"is_deleted": entity.IsDeleted,
+		}).Debug("Processing entity snapshot")
 
 		allSnapshots[entity.EntityID] = append(allSnapshots[entity.EntityID], entity)
 	}
@@ -552,19 +566,43 @@ func (r *DynamoUserRepository) GetAllEntities(ctx context.Context, tableID strin
 	for entityID, snapshots := range allSnapshots {
 		var bestSnapshot *models.EntitySnapshot
 
+		logrus.WithFields(logrus.Fields{
+			"entity_id":      entityID,
+			"snapshot_count": len(snapshots),
+		}).Debug("Processing entity snapshots")
+
 		for _, snapshot := range snapshots {
 			// Only consider snapshots at or before the asOf time
 			if !snapshot.Timestamp.After(*asOf) {
 				// Keep the most recent valid snapshot
 				if bestSnapshot == nil || snapshot.Timestamp.After(bestSnapshot.Timestamp) {
 					bestSnapshot = snapshot
+					logrus.WithFields(logrus.Fields{
+						"entity_id":      entityID,
+						"best_timestamp": bestSnapshot.Timestamp.Format(time.RFC3339),
+						"is_deleted":     bestSnapshot.IsDeleted,
+					}).Debug("Found better snapshot")
 				}
+			} else {
+				logrus.WithFields(logrus.Fields{
+					"entity_id":          entityID,
+					"snapshot_timestamp": snapshot.Timestamp.Format(time.RFC3339),
+					"asOf":               asOf.Format(time.RFC3339),
+				}).Debug("Skipping snapshot - after asOf time")
 			}
 		}
 
 		// Only include if we found a valid snapshot and it's not deleted
 		if bestSnapshot != nil && !bestSnapshot.IsDeleted {
 			entityMap[entityID] = bestSnapshot
+			logrus.WithField("entity_id", entityID).Debug("Including entity in result")
+		} else if bestSnapshot != nil {
+			logrus.WithFields(logrus.Fields{
+				"entity_id":  entityID,
+				"is_deleted": bestSnapshot.IsDeleted,
+			}).Debug("Excluding deleted entity")
+		} else {
+			logrus.WithField("entity_id", entityID).Debug("No valid snapshot found for entity")
 		}
 	}
 
@@ -573,6 +611,12 @@ func (r *DynamoUserRepository) GetAllEntities(ctx context.Context, tableID strin
 	for _, entity := range entityMap {
 		entities[entity.EntityID] = *entity
 	}
+
+	logrus.WithFields(logrus.Fields{
+		"table_id":           tableID,
+		"final_entity_count": len(entities),
+		"asOf":               asOf.Format(time.RFC3339),
+	}).Debug("GetAllEntities result")
 
 	return &models.EntitiesSnapshot{
 		TableID:   tableID,
