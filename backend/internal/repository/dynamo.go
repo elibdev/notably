@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -69,6 +70,11 @@ func (m *DynamoUserManager) CreateUser(ctx context.Context, userID string) (*Use
 	})
 
 	if err != nil {
+		// Check if this is a conditional check failure (user already exists)
+		var conditionalCheckErr *types.ConditionalCheckFailedException
+		if errors.As(err, &conditionalCheckErr) {
+			return nil, NewRepositoryError(ErrorTypeAlreadyExists, "user already exists", err)
+		}
 		return nil, NewRepositoryError(ErrorTypeInternal, "failed to create user", err)
 	}
 
@@ -94,7 +100,91 @@ func (m *DynamoUserManager) Health(ctx context.Context) error {
 	_, err := m.client.DescribeTable(ctx, &dynamodb.DescribeTableInput{
 		TableName: aws.String(m.tableName),
 	})
-	return err
+
+	if err != nil {
+		// Check if table doesn't exist
+		var resourceNotFound *types.ResourceNotFoundException
+		if errors.As(err, &resourceNotFound) {
+			// Try to create the table
+			return m.createTableIfNotExists(ctx)
+		}
+		return err
+	}
+
+	return nil
+}
+
+// createTableIfNotExists creates the DynamoDB table with the required schema
+func (m *DynamoUserManager) createTableIfNotExists(ctx context.Context) error {
+	input := &dynamodb.CreateTableInput{
+		TableName: aws.String(m.tableName),
+		AttributeDefinitions: []types.AttributeDefinition{
+			{
+				AttributeName: aws.String("PK"),
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+			{
+				AttributeName: aws.String("SK"),
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+			{
+				AttributeName: aws.String("GSI1PK"),
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+			{
+				AttributeName: aws.String("GSI1SK"),
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+		},
+		KeySchema: []types.KeySchemaElement{
+			{
+				AttributeName: aws.String("PK"),
+				KeyType:       types.KeyTypeHash,
+			},
+			{
+				AttributeName: aws.String("SK"),
+				KeyType:       types.KeyTypeRange,
+			},
+		},
+		GlobalSecondaryIndexes: []types.GlobalSecondaryIndex{
+			{
+				IndexName: aws.String("GSI1"),
+				KeySchema: []types.KeySchemaElement{
+					{
+						AttributeName: aws.String("GSI1PK"),
+						KeyType:       types.KeyTypeHash,
+					},
+					{
+						AttributeName: aws.String("GSI1SK"),
+						KeyType:       types.KeyTypeRange,
+					},
+				},
+				Projection: &types.Projection{
+					ProjectionType: types.ProjectionTypeAll,
+				},
+				ProvisionedThroughput: &types.ProvisionedThroughput{
+					ReadCapacityUnits:  aws.Int64(5),
+					WriteCapacityUnits: aws.Int64(5),
+				},
+			},
+		},
+		ProvisionedThroughput: &types.ProvisionedThroughput{
+			ReadCapacityUnits:  aws.Int64(5),
+			WriteCapacityUnits: aws.Int64(5),
+		},
+	}
+
+	_, err := m.client.CreateTable(ctx, input)
+	if err != nil {
+		var resourceInUse *types.ResourceInUseException
+		if errors.As(err, &resourceInUse) {
+			// Table already exists, which is fine
+			return nil
+		}
+		return fmt.Errorf("failed to create table: %w", err)
+	}
+
+	return nil
 }
 
 // DeleteUser removes a user and all their data

@@ -16,12 +16,15 @@ func main() {
 
 	// 1. Register a user (with unique ID to avoid conflicts)
 	userID := fmt.Sprintf("user_%s", uuid.New().String())
+	fmt.Printf("🔍 Generated user ID: %s\n", userID)
+
 	registerReq := map[string]interface{}{
 		"user_id":  userID,
 		"password": "secure_password",
 		"email":    fmt.Sprintf("user_%s@example.com", uuid.New().String()),
 	}
 
+	fmt.Printf("🔍 Registration request: %+v\n", registerReq)
 	authResp, err := makeRequest("POST", baseURL+"/auth/register", registerReq, "")
 	if err != nil {
 		fmt.Printf("❌ Registration failed: %v\n", err)

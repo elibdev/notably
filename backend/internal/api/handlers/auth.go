@@ -51,7 +51,11 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	// Create user
 	_, err := h.userManager.CreateUser(c.Request.Context(), req.UserID)
 	if err != nil {
-		c.JSON(http.StatusConflict, gin.H{"error": "User already exists"})
+		if repository.IsAlreadyExists(err) {
+			c.JSON(http.StatusConflict, gin.H{"error": "User already exists"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+		}
 		return
 	}
 
