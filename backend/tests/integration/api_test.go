@@ -163,25 +163,25 @@ func (m *MockUserManager) ValidateUserAccess(ctx context.Context, userID string,
 	return nil
 }
 
-func (m *MockUserManager) CreateUser(ctx context.Context, userID string) (*repository.UserStats, error) {
+func (m *MockUserManager) CreateUser(ctx context.Context, userID string, email string, password string) (*repository.User, error) {
 	now := time.Now()
-	return &repository.UserStats{
-		UserID:      userID,
-		TableCount:  0,
-		EntityCount: 0,
-		LastActive:  now,
-		CreatedAt:   now,
+	return &repository.User{
+		UserID:     userID,
+		Email:      email,
+		CreatedAt:  now,
+		UpdatedAt:  now,
+		LastActive: now,
 	}, nil
 }
 
-func (m *MockUserManager) GetUser(ctx context.Context, userID string) (*repository.UserStats, error) {
+func (m *MockUserManager) GetUser(ctx context.Context, userID string) (*repository.User, error) {
 	now := time.Now()
-	return &repository.UserStats{
-		UserID:      userID,
-		TableCount:  0,
-		EntityCount: 0,
-		LastActive:  now,
-		CreatedAt:   now,
+	return &repository.User{
+		UserID:     userID,
+		Email:      "test@example.com",
+		CreatedAt:  now,
+		UpdatedAt:  now,
+		LastActive: now,
 	}, nil
 }
 
@@ -190,8 +190,35 @@ func (m *MockUserManager) DeleteUser(ctx context.Context, userID string) error {
 	return nil
 }
 
+func (m *MockUserManager) GetUserByEmail(ctx context.Context, email string) (*repository.User, error) {
+	now := time.Now()
+	return &repository.User{
+		UserID:     "mock_user",
+		Email:      email,
+		CreatedAt:  now,
+		UpdatedAt:  now,
+		LastActive: now,
+	}, nil
+}
+
+func (m *MockUserManager) VerifyPassword(ctx context.Context, userID string, password string) (bool, error) {
+	return true, nil
+}
+
+func (m *MockUserManager) UpdatePassword(ctx context.Context, userID string, newPassword string) error {
+	return nil
+}
+
 func (m *MockUserManager) GetUserStats(ctx context.Context, userID string) (*repository.UserStats, error) {
-	return m.GetUser(ctx, userID)
+	now := time.Now()
+	return &repository.UserStats{
+		UserID:      userID,
+		Email:       "test@example.com",
+		TableCount:  0,
+		EntityCount: 0,
+		LastActive:  now,
+		CreatedAt:   now,
+	}, nil
 }
 
 func (m *MockUserManager) Health(ctx context.Context) error {

@@ -45,7 +45,7 @@ func SetupTestRepository(t *testing.T, userManager repository.UserManager, userI
 	ctx := context.Background()
 
 	// Create user if not exists
-	_, err := userManager.CreateUser(ctx, userID)
+	_, err := userManager.CreateUser(ctx, userID, userID+"@test.com", "test_password")
 	if err != nil {
 		// User might already exist, try to get repository
 		t.Logf("User creation failed (might already exist): %v", err)

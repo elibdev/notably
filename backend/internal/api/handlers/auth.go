@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
+	"regexp"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -36,11 +38,27 @@ type AuthResponse struct {
 	UserID    string    `json:"user_id" example:"user123"`
 }
 
+var userIDPattern = regexp.MustCompile(`^[a-zA-Z0-9_]{3,50}$`)
+
 func NewAuthHandler(authConfig config.AuthConfig, userManager repository.UserManager) *AuthHandler {
 	return &AuthHandler{
 		authConfig:  authConfig,
 		userManager: userManager,
 	}
+}
+
+// validateUserID checks if the user ID meets format requirements
+func validateUserID(userID string) error {
+	if len(userID) < 3 {
+		return fmt.Errorf("user ID must be at least 3 characters long")
+	}
+	if len(userID) > 50 {
+		return fmt.Errorf("user ID must be no more than 50 characters long")
+	}
+	if !userIDPattern.MatchString(userID) {
+		return fmt.Errorf("user ID can only contain alphanumeric characters and underscores")
+	}
+	return nil
 }
 
 // Register godoc
@@ -94,8 +112,14 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
+	// Validate user ID format
+	if err := validateUserID(req.UserID); err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: err.Error()})
+		return
+	}
+
 	// Create user
-	_, err := h.userManager.CreateUser(c.Request.Context(), req.UserID)
+	user, err := h.userManager.CreateUser(c.Request.Context(), req.UserID, req.Email, req.Password)
 	if err != nil {
 		logrus.WithError(err).WithField("user_id", req.UserID).Error("Failed to create user")
 		if repository.IsAlreadyExists(err) {
@@ -116,7 +140,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	c.JSON(http.StatusCreated, AuthResponse{
 		Token:     token,
 		ExpiresAt: expiresAt,
-		UserID:    req.UserID,
+		UserID:    user.UserID,
 	})
 }
 
@@ -170,16 +194,27 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	// Verify user exists
+	// Verify user exists and password is correct
 	user, err := h.userManager.GetUser(c.Request.Context(), req.UserID)
 	if err != nil {
+		logrus.WithError(err).WithField("user_id", req.UserID).Debug("User not found during login")
 		c.JSON(http.StatusUnauthorized, models.ErrorResponse{Error: "Invalid credentials"})
 		return
 	}
 
-	// In a real implementation, you'd verify the password
-	// For now, we'll just check if user exists
-	_ = user
+	// Verify password
+	isValidPassword, err := h.userManager.VerifyPassword(c.Request.Context(), req.UserID, req.Password)
+	if err != nil {
+		logrus.WithError(err).WithField("user_id", req.UserID).Error("Failed to verify password")
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{Error: "Authentication failed"})
+		return
+	}
+
+	if !isValidPassword {
+		logrus.WithField("user_id", req.UserID).Debug("Invalid password provided during login")
+		c.JSON(http.StatusUnauthorized, models.ErrorResponse{Error: "Invalid credentials"})
+		return
+	}
 
 	// Generate token
 	token, expiresAt, err := h.generateToken(req.UserID)
@@ -191,7 +226,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	c.JSON(http.StatusOK, AuthResponse{
 		Token:     token,
 		ExpiresAt: expiresAt,
-		UserID:    req.UserID,
+		UserID:    user.UserID,
 	})
 }
 

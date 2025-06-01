@@ -86,6 +86,15 @@ func (s *Server) Start() error {
 	return nil
 }
 
+// GetRouter returns the configured Gin router for testing purposes
+func (s *Server) GetRouter() *gin.Engine {
+	if s.router == nil {
+		s.setupRouter()
+		s.setupRoutes()
+	}
+	return s.router
+}
+
 func (s *Server) setupRouter() {
 	if s.config.Logging.Level == "debug" {
 		gin.SetMode(gin.DebugMode)

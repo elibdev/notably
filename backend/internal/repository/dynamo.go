@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -13,6 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/google/uuid"
 
+	"github.com/elibdev/notably/internal/auth"
 	"github.com/elibdev/notably/internal/models"
 )
 
@@ -52,47 +56,265 @@ func (m *DynamoUserManager) ValidateUserAccess(ctx context.Context, userID strin
 	return nil
 }
 
-// CreateUser creates a new user entry
-func (m *DynamoUserManager) CreateUser(ctx context.Context, userID string) (*UserStats, error) {
-	now := time.Now()
-	item := map[string]types.AttributeValue{
-		"PK":        &types.AttributeValueMemberS{Value: fmt.Sprintf("USER#%s", userID)},
-		"SK":        &types.AttributeValueMemberS{Value: "METADATA"},
-		"UserID":    &types.AttributeValueMemberS{Value: userID},
-		"CreatedAt": &types.AttributeValueMemberS{Value: now.Format(time.RFC3339)},
-		"Type":      &types.AttributeValueMemberS{Value: "USER"},
+// CreateUser creates a new user entry with email and password
+func (m *DynamoUserManager) CreateUser(ctx context.Context, userID string, email string, password string) (*User, error) {
+	// Validate inputs
+	if err := m.validateUserInput(userID, email, password); err != nil {
+		return nil, NewRepositoryError(ErrorTypeInvalidInput, "invalid user input", err)
 	}
 
-	_, err := m.client.PutItem(ctx, &dynamodb.PutItemInput{
-		TableName:           aws.String(m.tableName),
-		Item:                item,
-		ConditionExpression: aws.String("attribute_not_exists(PK)"),
+	// Hash password
+	hashedPassword, err := auth.HashPassword(password)
+	if err != nil {
+		return nil, NewRepositoryError(ErrorTypeInternal, "failed to hash password", err)
+	}
+
+	now := time.Now()
+
+	// Create user record
+	userItem := map[string]types.AttributeValue{
+		"PK":           &types.AttributeValueMemberS{Value: fmt.Sprintf("USER#%s", userID)},
+		"SK":           &types.AttributeValueMemberS{Value: "PROFILE"},
+		"UserID":       &types.AttributeValueMemberS{Value: userID},
+		"Email":        &types.AttributeValueMemberS{Value: strings.ToLower(email)},
+		"PasswordHash": &types.AttributeValueMemberS{Value: hashedPassword},
+		"CreatedAt":    &types.AttributeValueMemberS{Value: now.Format(time.RFC3339)},
+		"UpdatedAt":    &types.AttributeValueMemberS{Value: now.Format(time.RFC3339)},
+		"LastActive":   &types.AttributeValueMemberS{Value: now.Format(time.RFC3339)},
+		"Type":         &types.AttributeValueMemberS{Value: "USER_PROFILE"},
+		"GSI1PK":       &types.AttributeValueMemberS{Value: fmt.Sprintf("EMAIL#%s", strings.ToLower(email))},
+		"GSI1SK":       &types.AttributeValueMemberS{Value: "USER"},
+	}
+
+	// Create user stats record
+	statsItem := map[string]types.AttributeValue{
+		"PK":          &types.AttributeValueMemberS{Value: fmt.Sprintf("USER#%s", userID)},
+		"SK":          &types.AttributeValueMemberS{Value: "STATS"},
+		"UserID":      &types.AttributeValueMemberS{Value: userID},
+		"Email":       &types.AttributeValueMemberS{Value: strings.ToLower(email)},
+		"TableCount":  &types.AttributeValueMemberN{Value: "0"},
+		"EntityCount": &types.AttributeValueMemberN{Value: "0"},
+		"CreatedAt":   &types.AttributeValueMemberS{Value: now.Format(time.RFC3339)},
+		"LastActive":  &types.AttributeValueMemberS{Value: now.Format(time.RFC3339)},
+		"Type":        &types.AttributeValueMemberS{Value: "USER_STATS"},
+	}
+
+	// Use transaction to create both records atomically
+	_, err = m.client.TransactWriteItems(ctx, &dynamodb.TransactWriteItemsInput{
+		TransactItems: []types.TransactWriteItem{
+			{
+				Put: &types.Put{
+					TableName:           aws.String(m.tableName),
+					Item:                userItem,
+					ConditionExpression: aws.String("attribute_not_exists(PK)"),
+				},
+			},
+			{
+				Put: &types.Put{
+					TableName: aws.String(m.tableName),
+					Item:      statsItem,
+				},
+			},
+		},
 	})
 
 	if err != nil {
 		// Check if this is a conditional check failure (user already exists)
-		var conditionalCheckErr *types.ConditionalCheckFailedException
-		if errors.As(err, &conditionalCheckErr) {
-			return nil, NewRepositoryError(ErrorTypeAlreadyExists, "user already exists", err)
+		var transactionCanceledErr *types.TransactionCanceledException
+		if errors.As(err, &transactionCanceledErr) {
+			for _, reason := range transactionCanceledErr.CancellationReasons {
+				if reason.Code != nil && *reason.Code == "ConditionalCheckFailed" {
+					return nil, NewRepositoryError(ErrorTypeAlreadyExists, "user already exists", err)
+				}
+			}
 		}
 		return nil, NewRepositoryError(ErrorTypeInternal, "failed to create user", err)
 	}
 
-	// Return user stats
-	stats := &UserStats{
-		UserID:      userID,
-		TableCount:  0,
-		EntityCount: 0,
-		LastActive:  now,
-		CreatedAt:   now,
+	// Return user object
+	user := &User{
+		UserID:     userID,
+		Email:      strings.ToLower(email),
+		CreatedAt:  now,
+		UpdatedAt:  now,
+		LastActive: now,
 	}
 
-	return stats, nil
+	return user, nil
 }
 
-// GetUser retrieves user information
-func (m *DynamoUserManager) GetUser(ctx context.Context, userID string) (*UserStats, error) {
-	return m.GetUserStats(ctx, userID)
+// validateUserInput validates user input fields
+func (m *DynamoUserManager) validateUserInput(userID, email, password string) error {
+	if userID == "" {
+		return auth.ErrEmptyUserID
+	}
+	if email == "" {
+		return auth.ErrEmptyEmail
+	}
+	if password == "" {
+		return auth.ErrEmptyPassword
+	}
+
+	// Validate email format
+	emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
+	if !emailRegex.MatchString(email) {
+		return auth.ErrInvalidEmail
+	}
+
+	// Validate user ID format (alphanumeric and underscores only)
+	userIDRegex := regexp.MustCompile(`^[a-zA-Z0-9_]{3,50}$`)
+	if !userIDRegex.MatchString(userID) {
+		return auth.ErrInvalidUserID
+	}
+
+	// Validate password strength
+	if err := auth.ValidatePasswordStrength(password); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// GetUser retrieves a user by userID
+func (m *DynamoUserManager) GetUser(ctx context.Context, userID string) (*User, error) {
+	result, err := m.client.GetItem(ctx, &dynamodb.GetItemInput{
+		TableName: aws.String(m.tableName),
+		Key: map[string]types.AttributeValue{
+			"PK": &types.AttributeValueMemberS{Value: fmt.Sprintf("USER#%s", userID)},
+			"SK": &types.AttributeValueMemberS{Value: "PROFILE"},
+		},
+	})
+
+	if err != nil {
+		return nil, NewRepositoryError(ErrorTypeInternal, "failed to get user", err)
+	}
+
+	if result.Item == nil {
+		return nil, NewRepositoryError(ErrorTypeNotFound, "user not found", nil)
+	}
+
+	return m.parseUserFromItem(result.Item)
+}
+
+// GetUserByEmail retrieves a user by email using GSI1
+func (m *DynamoUserManager) GetUserByEmail(ctx context.Context, email string) (*User, error) {
+	result, err := m.client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(m.tableName),
+		IndexName:              aws.String("GSI1"),
+		KeyConditionExpression: aws.String("GSI1PK = :email"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":email": &types.AttributeValueMemberS{Value: fmt.Sprintf("EMAIL#%s", strings.ToLower(email))},
+		},
+		Limit: aws.Int32(1),
+	})
+
+	if err != nil {
+		return nil, NewRepositoryError(ErrorTypeInternal, "failed to get user by email", err)
+	}
+
+	if len(result.Items) == 0 {
+		return nil, NewRepositoryError(ErrorTypeNotFound, "user not found", nil)
+	}
+
+	return m.parseUserFromItem(result.Items[0])
+}
+
+// VerifyPassword verifies a password for a user
+func (m *DynamoUserManager) VerifyPassword(ctx context.Context, userID string, password string) (bool, error) {
+	user, err := m.GetUser(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+
+	return auth.VerifyPassword(password, user.PasswordHash), nil
+}
+
+// UpdatePassword updates a user's password
+func (m *DynamoUserManager) UpdatePassword(ctx context.Context, userID string, newPassword string) error {
+	// Validate password strength
+	if err := auth.ValidatePasswordStrength(newPassword); err != nil {
+		return NewRepositoryError(ErrorTypeInvalidInput, "invalid password", err)
+	}
+
+	// Hash new password
+	hashedPassword, err := auth.HashPassword(newPassword)
+	if err != nil {
+		return NewRepositoryError(ErrorTypeInternal, "failed to hash password", err)
+	}
+
+	now := time.Now()
+	_, err = m.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+		TableName: aws.String(m.tableName),
+		Key: map[string]types.AttributeValue{
+			"PK": &types.AttributeValueMemberS{Value: fmt.Sprintf("USER#%s", userID)},
+			"SK": &types.AttributeValueMemberS{Value: "PROFILE"},
+		},
+		UpdateExpression: aws.String("SET PasswordHash = :password, UpdatedAt = :updated"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":password": &types.AttributeValueMemberS{Value: hashedPassword},
+			":updated":  &types.AttributeValueMemberS{Value: now.Format(time.RFC3339)},
+		},
+		ConditionExpression: aws.String("attribute_exists(PK)"),
+	})
+
+	if err != nil {
+		var conditionalCheckErr *types.ConditionalCheckFailedException
+		if errors.As(err, &conditionalCheckErr) {
+			return NewRepositoryError(ErrorTypeNotFound, "user not found", err)
+		}
+		return NewRepositoryError(ErrorTypeInternal, "failed to update password", err)
+	}
+
+	return nil
+}
+
+// parseUserFromItem parses a User from a DynamoDB item
+func (m *DynamoUserManager) parseUserFromItem(item map[string]types.AttributeValue) (*User, error) {
+	user := &User{}
+
+	if userIDAttr, ok := item["UserID"]; ok {
+		if s, ok := userIDAttr.(*types.AttributeValueMemberS); ok {
+			user.UserID = s.Value
+		}
+	}
+
+	if emailAttr, ok := item["Email"]; ok {
+		if s, ok := emailAttr.(*types.AttributeValueMemberS); ok {
+			user.Email = s.Value
+		}
+	}
+
+	if passwordAttr, ok := item["PasswordHash"]; ok {
+		if s, ok := passwordAttr.(*types.AttributeValueMemberS); ok {
+			user.PasswordHash = s.Value
+		}
+	}
+
+	if createdAttr, ok := item["CreatedAt"]; ok {
+		if s, ok := createdAttr.(*types.AttributeValueMemberS); ok {
+			if t, err := time.Parse(time.RFC3339, s.Value); err == nil {
+				user.CreatedAt = t
+			}
+		}
+	}
+
+	if updatedAttr, ok := item["UpdatedAt"]; ok {
+		if s, ok := updatedAttr.(*types.AttributeValueMemberS); ok {
+			if t, err := time.Parse(time.RFC3339, s.Value); err == nil {
+				user.UpdatedAt = t
+			}
+		}
+	}
+
+	if lastActiveAttr, ok := item["LastActive"]; ok {
+		if s, ok := lastActiveAttr.(*types.AttributeValueMemberS); ok {
+			if t, err := time.Parse(time.RFC3339, s.Value); err == nil {
+				user.LastActive = t
+			}
+		}
+	}
+
+	return user, nil
 }
 
 // Health checks the health of the user manager
@@ -251,12 +473,12 @@ func (m *DynamoUserManager) DeleteUser(ctx context.Context, userID string) error
 
 // GetUserStats retrieves user statistics
 func (m *DynamoUserManager) GetUserStats(ctx context.Context, userID string) (*UserStats, error) {
-	// Query for user metadata
+	// Query for user stats
 	result, err := m.client.GetItem(ctx, &dynamodb.GetItemInput{
 		TableName: aws.String(m.tableName),
 		Key: map[string]types.AttributeValue{
 			"PK": &types.AttributeValueMemberS{Value: fmt.Sprintf("USER#%s", userID)},
-			"SK": &types.AttributeValueMemberS{Value: "METADATA"},
+			"SK": &types.AttributeValueMemberS{Value: "STATS"},
 		},
 	})
 
@@ -265,20 +487,58 @@ func (m *DynamoUserManager) GetUserStats(ctx context.Context, userID string) (*U
 	}
 
 	if result.Item == nil {
-		return nil, NewRepositoryError(ErrorTypeNotFound, "user not found", nil)
+		return nil, NewRepositoryError(ErrorTypeNotFound, "user stats not found", nil)
 	}
 
-	// Parse created_at
-	createdAtStr := result.Item["CreatedAt"].(*types.AttributeValueMemberS).Value
-	createdAt, _ := time.Parse(time.RFC3339, createdAtStr)
+	return m.parseUserStatsFromItem(result.Item)
+}
 
-	// TODO: Query for actual table and entity counts
-	stats := &UserStats{
-		UserID:      userID,
-		TableCount:  0,
-		EntityCount: 0,
-		LastActive:  time.Now(),
-		CreatedAt:   createdAt,
+// parseUserStatsFromItem parses UserStats from a DynamoDB item
+func (m *DynamoUserManager) parseUserStatsFromItem(item map[string]types.AttributeValue) (*UserStats, error) {
+	stats := &UserStats{}
+
+	if userIDAttr, ok := item["UserID"]; ok {
+		if s, ok := userIDAttr.(*types.AttributeValueMemberS); ok {
+			stats.UserID = s.Value
+		}
+	}
+
+	if emailAttr, ok := item["Email"]; ok {
+		if s, ok := emailAttr.(*types.AttributeValueMemberS); ok {
+			stats.Email = s.Value
+		}
+	}
+
+	if tableCountAttr, ok := item["TableCount"]; ok {
+		if n, ok := tableCountAttr.(*types.AttributeValueMemberN); ok {
+			if count, err := strconv.Atoi(n.Value); err == nil {
+				stats.TableCount = count
+			}
+		}
+	}
+
+	if entityCountAttr, ok := item["EntityCount"]; ok {
+		if n, ok := entityCountAttr.(*types.AttributeValueMemberN); ok {
+			if count, err := strconv.Atoi(n.Value); err == nil {
+				stats.EntityCount = count
+			}
+		}
+	}
+
+	if createdAttr, ok := item["CreatedAt"]; ok {
+		if s, ok := createdAttr.(*types.AttributeValueMemberS); ok {
+			if t, err := time.Parse(time.RFC3339, s.Value); err == nil {
+				stats.CreatedAt = t
+			}
+		}
+	}
+
+	if lastActiveAttr, ok := item["LastActive"]; ok {
+		if s, ok := lastActiveAttr.(*types.AttributeValueMemberS); ok {
+			if t, err := time.Parse(time.RFC3339, s.Value); err == nil {
+				stats.LastActive = t
+			}
+		}
 	}
 
 	return stats, nil

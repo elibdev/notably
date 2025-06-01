@@ -43,9 +43,14 @@ type UserManager interface {
 	GetUserRepository(userID string) UserRepository
 	ValidateUserAccess(ctx context.Context, userID string, tableID string) error
 
+	// Authentication operations
+	CreateUser(ctx context.Context, userID string, email string, password string) (*User, error)
+	GetUser(ctx context.Context, userID string) (*User, error)
+	GetUserByEmail(ctx context.Context, email string) (*User, error)
+	VerifyPassword(ctx context.Context, userID string, password string) (bool, error)
+	UpdatePassword(ctx context.Context, userID string, newPassword string) error
+
 	// Administrative operations
-	CreateUser(ctx context.Context, userID string) (*UserStats, error)
-	GetUser(ctx context.Context, userID string) (*UserStats, error)
 	DeleteUser(ctx context.Context, userID string) error
 	GetUserStats(ctx context.Context, userID string) (*UserStats, error)
 
@@ -53,9 +58,20 @@ type UserManager interface {
 	Health(ctx context.Context) error
 }
 
+// User represents a user account with authentication details
+type User struct {
+	UserID       string    `json:"user_id"`
+	Email        string    `json:"email"`
+	PasswordHash string    `json:"-"` // Never serialize password hash
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	LastActive   time.Time `json:"last_active"`
+}
+
 // UserStats represents usage statistics for a user
 type UserStats struct {
 	UserID      string    `json:"user_id"`
+	Email       string    `json:"email"`
 	TableCount  int       `json:"table_count"`
 	EntityCount int       `json:"entity_count"`
 	LastActive  time.Time `json:"last_active"`
