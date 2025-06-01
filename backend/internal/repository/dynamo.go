@@ -518,9 +518,61 @@ func (r *DynamoUserRepository) GetAllEntities(ctx context.Context, tableID strin
 		asOf = &now
 	}
 
-	// This is a simplified implementation
-	// In practice, you'd want to use GSIs for efficient querying
+	// Query GSI1 for all entity snapshots in this table
+	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(r.tableName),
+		IndexName:              aws.String("GSI1"),
+		KeyConditionExpression: aws.String("GSI1PK = :pk AND begins_with(GSI1SK, :sk)"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":pk": &types.AttributeValueMemberS{Value: fmt.Sprintf("USER#%s#TABLE#%s", r.userID, tableID)},
+			":sk": &types.AttributeValueMemberS{Value: "ENTITY#"},
+		},
+		ScanIndexForward: aws.Bool(false), // Get most recent snapshots first
+	})
+
+	if err != nil {
+		return nil, NewRepositoryError(ErrorTypeInternal, "failed to get all entities", err)
+	}
+
+	// Group all snapshots by entity ID first
+	allSnapshots := make(map[string][]*models.EntitySnapshot)
+
+	for _, item := range result.Items {
+		entity, err := r.parseEntityFromItem(item)
+		if err != nil {
+			continue
+		}
+
+		allSnapshots[entity.EntityID] = append(allSnapshots[entity.EntityID], entity)
+	}
+
+	// For each entity, find the most recent snapshot before or at asOf time
+	entityMap := make(map[string]*models.EntitySnapshot)
+
+	for entityID, snapshots := range allSnapshots {
+		var bestSnapshot *models.EntitySnapshot
+
+		for _, snapshot := range snapshots {
+			// Only consider snapshots at or before the asOf time
+			if !snapshot.Timestamp.After(*asOf) {
+				// Keep the most recent valid snapshot
+				if bestSnapshot == nil || snapshot.Timestamp.After(bestSnapshot.Timestamp) {
+					bestSnapshot = snapshot
+				}
+			}
+		}
+
+		// Only include if we found a valid snapshot and it's not deleted
+		if bestSnapshot != nil && !bestSnapshot.IsDeleted {
+			entityMap[entityID] = bestSnapshot
+		}
+	}
+
+	// Convert map to slice
 	entities := make(map[string]models.EntitySnapshot)
+	for _, entity := range entityMap {
+		entities[entity.EntityID] = *entity
+	}
 
 	return &models.EntitiesSnapshot{
 		TableID:   tableID,
@@ -531,7 +583,72 @@ func (r *DynamoUserRepository) GetAllEntities(ctx context.Context, tableID strin
 
 // GetAllEntitiesIncludingDeleted retrieves all entities including deleted ones
 func (r *DynamoUserRepository) GetAllEntitiesIncludingDeleted(ctx context.Context, tableID string, asOf *time.Time) (*models.EntitiesSnapshot, error) {
-	return r.GetAllEntities(ctx, tableID, asOf)
+	if asOf == nil {
+		now := time.Now()
+		asOf = &now
+	}
+
+	// Query GSI1 for all entity snapshots in this table
+	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(r.tableName),
+		IndexName:              aws.String("GSI1"),
+		KeyConditionExpression: aws.String("GSI1PK = :pk AND begins_with(GSI1SK, :sk)"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":pk": &types.AttributeValueMemberS{Value: fmt.Sprintf("USER#%s#TABLE#%s", r.userID, tableID)},
+			":sk": &types.AttributeValueMemberS{Value: "ENTITY#"},
+		},
+		ScanIndexForward: aws.Bool(false), // Get most recent snapshots first
+	})
+
+	if err != nil {
+		return nil, NewRepositoryError(ErrorTypeInternal, "failed to get all entities including deleted", err)
+	}
+
+	// Group all snapshots by entity ID first
+	allSnapshots := make(map[string][]*models.EntitySnapshot)
+
+	for _, item := range result.Items {
+		entity, err := r.parseEntityFromItem(item)
+		if err != nil {
+			continue
+		}
+
+		allSnapshots[entity.EntityID] = append(allSnapshots[entity.EntityID], entity)
+	}
+
+	// For each entity, find the most recent snapshot before or at asOf time
+	entityMap := make(map[string]*models.EntitySnapshot)
+
+	for entityID, snapshots := range allSnapshots {
+		var bestSnapshot *models.EntitySnapshot
+
+		for _, snapshot := range snapshots {
+			// Only consider snapshots at or before the asOf time
+			if !snapshot.Timestamp.After(*asOf) {
+				// Keep the most recent valid snapshot
+				if bestSnapshot == nil || snapshot.Timestamp.After(bestSnapshot.Timestamp) {
+					bestSnapshot = snapshot
+				}
+			}
+		}
+
+		// Include both active and deleted entities in this version
+		if bestSnapshot != nil {
+			entityMap[entityID] = bestSnapshot
+		}
+	}
+
+	// Convert map to slice
+	entities := make(map[string]models.EntitySnapshot)
+	for _, entity := range entityMap {
+		entities[entity.EntityID] = *entity
+	}
+
+	return &models.EntitiesSnapshot{
+		TableID:   tableID,
+		Entities:  entities,
+		Timestamp: *asOf,
+	}, nil
 }
 
 // UpdateEntity updates an entity
@@ -643,9 +760,11 @@ func (r *DynamoUserRepository) GetEntityHistory(ctx context.Context, tableID str
 	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
 		TableName:              aws.String(r.tableName),
 		KeyConditionExpression: aws.String("PK = :pk AND begins_with(SK, :sk)"),
+		FilterExpression:       aws.String("EntityID = :entityID"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":pk": &types.AttributeValueMemberS{Value: fmt.Sprintf("USER#%s#ENTITY#%s", r.userID, entityID)},
-			":sk": &types.AttributeValueMemberS{Value: "TUPLE#"},
+			":pk":       &types.AttributeValueMemberS{Value: fmt.Sprintf("USER#%s#TABLE#%s", r.userID, tableID)},
+			":sk":       &types.AttributeValueMemberS{Value: "TUPLE#"},
+			":entityID": &types.AttributeValueMemberS{Value: entityID},
 		},
 		ScanIndexForward: aws.Bool(false),
 	})
@@ -724,6 +843,10 @@ func (r *DynamoUserRepository) storeEntitySnapshot(ctx context.Context, entity *
 	// Add DynamoDB keys
 	item["PK"] = &types.AttributeValueMemberS{Value: fmt.Sprintf("USER#%s#ENTITY#%s", r.userID, entity.EntityID)}
 	item["SK"] = &types.AttributeValueMemberS{Value: fmt.Sprintf("SNAPSHOT#%d", entity.Timestamp.Unix())}
+
+	// Add GSI1 keys for table-based queries
+	item["GSI1PK"] = &types.AttributeValueMemberS{Value: fmt.Sprintf("USER#%s#TABLE#%s", r.userID, entity.TableID)}
+	item["GSI1SK"] = &types.AttributeValueMemberS{Value: fmt.Sprintf("ENTITY#%s#%d", entity.EntityID, entity.Timestamp.Unix())}
 
 	_, err = r.client.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String(r.tableName),

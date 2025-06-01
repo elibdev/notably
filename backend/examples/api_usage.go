@@ -79,6 +79,10 @@ func main() {
 	entityID := entityResp["entity_id"].(string)
 	fmt.Printf("✅ Entity created: %s\n", entityID)
 
+	// Record timestamp before update for time travel testing
+	beforeUpdateTime := time.Now()
+	time.Sleep(1 * time.Second) // Ensure timestamp difference
+
 	// 4. Update the entity
 	updateEntityReq := map[string]interface{}{
 		"fields": map[string]interface{}{
@@ -149,14 +153,28 @@ func main() {
 	entityList := entities["entities"].([]interface{})
 	fmt.Printf("✅ All entities: %d found\n", len(entityList))
 
-	// 12. Time travel - get state from 5 minutes ago
-	past := time.Now().Add(-5 * time.Minute).Format(time.RFC3339)
-	pastEntities, err := makeRequest("GET", baseURL+"/tables/contacts/entities?asOf="+past, nil, token)
+	// 12. Time travel - get state before the update
+	beforeUpdateTimestamp := beforeUpdateTime.Format(time.RFC3339)
+	pastEntities, err := makeRequest("GET", baseURL+"/tables/contacts/entities?asOf="+beforeUpdateTimestamp, nil, token)
 	if err != nil {
 		panic(err)
 	}
 	pastEntityList := pastEntities["entities"].([]interface{})
-	fmt.Printf("✅ Past entities (5min ago): %d found\n", len(pastEntityList))
+	fmt.Printf("✅ Past entities (before update): %d found\n", len(pastEntityList))
+
+	// 13. Time travel - get specific entity state before update
+	pastEntity, err := makeRequest("GET", fmt.Sprintf("%s/tables/contacts/entities/%s?asOf=%s", baseURL, entityID, beforeUpdateTimestamp), nil, token)
+	if err != nil {
+		panic(err)
+	}
+	if pastEntity != nil {
+		pastFields := pastEntity["fields"].(map[string]interface{})
+		if pastFields["email"] == "john@example.com" && pastFields["salary"].(float64) == 75000.50 {
+			fmt.Printf("✅ Time travel successful: Found original email and salary\n")
+		} else {
+			fmt.Printf("❌ Time travel failed: Original values not found\n")
+		}
+	}
 
 	fmt.Println("🎉 All API operations completed successfully!")
 }
