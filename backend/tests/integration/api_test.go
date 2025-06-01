@@ -104,12 +104,12 @@ func TestAPIIntegration(t *testing.T) {
 		}
 
 		resp := makeTestRequest(t, testServer.URL, "POST", "/api/v1/tables/contacts/entities", createReq, token)
-		
+
 		var entityResp map[string]interface{}
 		defer resp.Body.Close()
 		err := json.NewDecoder(resp.Body).Decode(&entityResp)
 		require.NoError(t, err)
-		
+
 		assert.Equal(t, http.StatusCreated, resp.StatusCode)
 
 		entityID, exists := entityResp["entity_id"]

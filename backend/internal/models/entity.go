@@ -18,16 +18,16 @@ type EntitySnapshot struct {
 
 // EntitiesSnapshot represents a collection of entities at a specific point in time
 type EntitiesSnapshot struct {
-	TableID   string                      `json:"table_id"`
-	Entities  map[string]EntitySnapshot   `json:"entities"`
-	Timestamp time.Time                   `json:"timestamp"`
+	TableID   string                    `json:"table_id"`
+	Entities  map[string]EntitySnapshot `json:"entities"`
+	Timestamp time.Time                 `json:"timestamp"`
 }
 
 // TableSnapshot represents a point-in-time view of all entities in a table
 type TableSnapshot struct {
-	TableID   string                      `json:"table_id"`
-	Entities  map[string]EntitySnapshot   `json:"entities"`
-	Timestamp time.Time                   `json:"timestamp"`
+	TableID   string                    `json:"table_id"`
+	Entities  map[string]EntitySnapshot `json:"entities"`
+	Timestamp time.Time                 `json:"timestamp"`
 }
 
 // EntityHistory represents the complete history of changes to an entity
@@ -52,11 +52,11 @@ type FieldHistory struct {
 
 // FieldChange represents a single field modification
 type FieldChange struct {
-	EntityID  string     `json:"entity_id"`
-	Timestamp time.Time  `json:"timestamp"`
-	OldValue  *string    `json:"old_value,omitempty"`
-	NewValue  string     `json:"new_value"`
-	Operation string     `json:"operation"` // SET, DELETE
+	EntityID  string    `json:"entity_id"`
+	Timestamp time.Time `json:"timestamp"`
+	OldValue  *string   `json:"old_value,omitempty"`
+	NewValue  string    `json:"new_value"`
+	Operation string    `json:"operation"` // SET, DELETE
 }
 
 // QueryOptions provides filtering and pagination options for queries

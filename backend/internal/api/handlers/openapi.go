@@ -77,8 +77,8 @@ func OpenAPISpec(c *gin.Context) {
 		"components": map[string]interface{}{
 			"securitySchemes": map[string]interface{}{
 				"bearerAuth": map[string]interface{}{
-					"type":   "http",
-					"scheme": "bearer",
+					"type":         "http",
+					"scheme":       "bearer",
 					"bearerFormat": "JWT",
 				},
 			},

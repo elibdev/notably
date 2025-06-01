@@ -7,8 +7,8 @@ import (
 // User represents a user in the system
 type User struct {
 	ID        string    `json:"id"`
-	PK        string    `json:"pk"`         // Partition key: USER#{userID}
-	SK        string    `json:"sk"`         // Sort key: USER
+	PK        string    `json:"pk"` // Partition key: USER#{userID}
+	SK        string    `json:"sk"` // Sort key: USER
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

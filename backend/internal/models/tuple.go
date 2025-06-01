@@ -148,8 +148,6 @@ func IsSystemField(fieldName string) bool {
 	return fieldName == SystemFieldDeleted || fieldName == SystemFieldCreated
 }
 
-
-
 // GetUserIDFromPK extracts user ID from a partition key
 func GetUserIDFromPK(pk string) string {
 	if strings.HasPrefix(pk, "USER#") {
@@ -175,7 +173,7 @@ func ParseTupleSK(sk string) (tableID, entityID, timestamp, fieldName string, er
 	// Remove "TUPLE#" prefix
 	remainder := sk[6:]
 	parts := strings.Split(remainder, "#")
-	
+
 	if len(parts) != 4 {
 		return "", "", "", "", fmt.Errorf("invalid tuple sort key format: expected 4 parts")
 	}
@@ -189,14 +187,14 @@ func IsValidEntityID(entityID string) bool {
 	if len(entityID) != 26 {
 		return false
 	}
-	
+
 	// Check if all characters are valid base32 (excluding I, L, O, U)
 	for _, char := range entityID {
 		if !isValidULIDChar(char) {
 			return false
 		}
 	}
-	
+
 	return true
 }
 

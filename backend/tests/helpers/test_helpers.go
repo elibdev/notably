@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/elibdev/notably/internal/models"
 	"github.com/elibdev/notably/internal/repository"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // AssertEntityEqual compares two EntitySnapshots for equality
@@ -82,7 +82,7 @@ func PopulateTestData(t *testing.T, repo repository.UserRepository) {
 
 	// Add all test tuples - need to implement PutBatch method
 	tuples := CreateCompleteTestDataset(userID)
-	
+
 	// For now, put tuples individually since PutBatch might not be implemented yet
 	for _, tuple := range tuples {
 		// This would need to be implemented in the repository
@@ -262,8 +262,8 @@ func AssertTimestampWithinRange(t *testing.T, actual time.Time, expected time.Ti
 	if diff < 0 {
 		diff = -diff
 	}
-	assert.True(t, diff <= tolerance, 
-		"Timestamp %v should be within %v of %v (actual diff: %v)", 
+	assert.True(t, diff <= tolerance,
+		"Timestamp %v should be within %v of %v (actual diff: %v)",
 		actual, tolerance, expected, diff)
 }
 

@@ -3,11 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	"os"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/sirupsen/logrus"
 
 	"github.com/elibdev/notably/internal/api"
 	internalConfig "github.com/elibdev/notably/internal/config"
@@ -18,28 +19,74 @@ func main() {
 	// Load configuration
 	cfg, err := internalConfig.LoadConfig()
 	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+		logrus.WithError(err).Fatal("Failed to load config")
 	}
 
+	// Setup structured logging
+	setupLogging(cfg)
+
+	logrus.WithFields(logrus.Fields{
+		"environment": os.Getenv("TIMEDB_ENV"),
+		"log_level":   cfg.Logging.Level,
+		"log_format":  cfg.Logging.Format,
+	}).Info("Starting TimeDB server")
+
 	// Setup AWS DynamoDB client
+	logrus.Info("Setting up AWS DynamoDB client")
 	awsCfg, err := setupAWSConfig(cfg)
 	if err != nil {
-		log.Fatalf("Failed to setup AWS config: %v", err)
+		logrus.WithError(err).Fatal("Failed to setup AWS config")
 	}
 
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
+	logrus.WithFields(logrus.Fields{
+		"endpoint": cfg.Database.EndpointURL,
+		"region":   cfg.Database.Region,
+		"table":    cfg.Database.TableName,
+	}).Info("DynamoDB client configured")
 
 	// Create user manager
+	logrus.Info("Initializing user manager")
 	userManager := repository.NewDynamoUserManager(dynamoClient, cfg.Database.TableName)
 
 	// Create HTTP server
+	logrus.Info("Creating HTTP server")
 	server := api.NewServer(cfg, userManager)
 
 	// Start server
-	log.Printf("Starting TimeDB server on %s:%d", cfg.Server.Host, cfg.Server.Port)
+	logrus.WithFields(logrus.Fields{
+		"host": cfg.Server.Host,
+		"port": cfg.Server.Port,
+	}).Info("Starting TimeDB server")
+
 	if err := server.Start(); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+		logrus.WithError(err).Fatal("Failed to start server")
 	}
+}
+
+func setupLogging(cfg *internalConfig.Config) {
+	// Set log level
+	level, err := logrus.ParseLevel(cfg.Logging.Level)
+	if err != nil {
+		logrus.WithError(err).Warn("Invalid log level, defaulting to info")
+		level = logrus.InfoLevel
+	}
+	logrus.SetLevel(level)
+
+	// Set log format
+	if cfg.Logging.Format == "json" {
+		logrus.SetFormatter(&logrus.JSONFormatter{
+			TimestampFormat: "2006-01-02T15:04:05.000Z07:00",
+		})
+	} else {
+		logrus.SetFormatter(&logrus.TextFormatter{
+			FullTimestamp:   true,
+			TimestampFormat: "2006-01-02T15:04:05.000Z07:00",
+		})
+	}
+
+	// Output to stdout
+	logrus.SetOutput(os.Stdout)
 }
 
 func setupAWSConfig(cfg *internalConfig.Config) (aws.Config, error) {

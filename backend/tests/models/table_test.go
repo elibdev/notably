@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/elibdev/notably/internal/models"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNewTableSchema(t *testing.T) {
@@ -213,9 +213,9 @@ func TestTableSchema_ValidateFields(t *testing.T) {
 
 func TestTableSchema_KeyGeneration(t *testing.T) {
 	tests := []struct {
-		name      string
-		userID    string
-		tableID   string
+		name       string
+		userID     string
+		tableID    string
 		expectedPK string
 		expectedSK string
 	}{
@@ -288,7 +288,7 @@ func TestTableSchema_TimestampBehavior(t *testing.T) {
 	// Adding a field should update UpdatedAt but not CreatedAt
 	schema.AddField(models.FieldDefinition{Name: "email", DataType: models.DataTypeString})
 
-	assert.Equal(t, originalCreatedAt, schema.CreatedAt) // CreatedAt shouldn't change
+	assert.Equal(t, originalCreatedAt, schema.CreatedAt)      // CreatedAt shouldn't change
 	assert.True(t, schema.UpdatedAt.After(originalUpdatedAt)) // UpdatedAt should be later
 
 	updatedAfterAdd := schema.UpdatedAt
@@ -297,6 +297,6 @@ func TestTableSchema_TimestampBehavior(t *testing.T) {
 	// Removing a field should also update UpdatedAt
 	schema.RemoveField("email")
 
-	assert.Equal(t, originalCreatedAt, schema.CreatedAt) // CreatedAt still shouldn't change
+	assert.Equal(t, originalCreatedAt, schema.CreatedAt)    // CreatedAt still shouldn't change
 	assert.True(t, schema.UpdatedAt.After(updatedAfterAdd)) // UpdatedAt should be even later
 }

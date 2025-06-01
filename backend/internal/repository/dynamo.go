@@ -444,7 +444,7 @@ func (r *DynamoUserRepository) UpdateEntity(ctx context.Context, tableID string,
 	}
 
 	now := time.Now()
-	
+
 	// Create updated entity
 	updated := current.Clone()
 	for k, v := range fields {

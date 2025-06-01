@@ -30,9 +30,9 @@ type ServerConfig struct {
 }
 
 type AuthConfig struct {
-	JWTSecret    string        `yaml:"jwt_secret"`
-	TokenExpiry  time.Duration `yaml:"token_expiry"`
-	RequireAuth  bool          `yaml:"require_auth"`
+	JWTSecret   string        `yaml:"jwt_secret"`
+	TokenExpiry time.Duration `yaml:"token_expiry"`
+	RequireAuth bool          `yaml:"require_auth"`
 }
 
 type LoggingConfig struct {
@@ -47,7 +47,7 @@ func LoadConfig() (*Config, error) {
 	}
 
 	configPath := fmt.Sprintf("config/environments/%s.yaml", env)
-	
+
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file %s: %w", configPath, err)

@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/elibdev/notably/internal/models"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNewUser(t *testing.T) {
@@ -107,8 +107,8 @@ func TestUser_IsValid(t *testing.T) {
 			expected: false,
 		},
 		{
-			name: "empty user",
-			user: models.User{},
+			name:     "empty user",
+			user:     models.User{},
 			expected: false,
 		},
 	}
@@ -148,6 +148,6 @@ func TestUser_TimestampBehavior(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 	user.UpdateTimestamp()
 
-	assert.Equal(t, originalCreatedAt, user.CreatedAt) // CreatedAt shouldn't change
+	assert.Equal(t, originalCreatedAt, user.CreatedAt)      // CreatedAt shouldn't change
 	assert.True(t, user.UpdatedAt.After(originalCreatedAt)) // UpdatedAt should be later
 }

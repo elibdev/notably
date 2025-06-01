@@ -31,8 +31,8 @@ type TableSchema struct {
 	Fields    []FieldDefinition `json:"fields"`
 	CreatedAt time.Time         `json:"created_at"`
 	UpdatedAt time.Time         `json:"updated_at"`
-	PK        string            `json:"pk"`  // Partition key: USER#{userID}
-	SK        string            `json:"sk"`  // Sort key: TABLE#{tableID}
+	PK        string            `json:"pk"` // Partition key: USER#{userID}
+	SK        string            `json:"sk"` // Sort key: TABLE#{tableID}
 }
 
 // ChangeEvent represents a single change event in the time-series data
@@ -49,8 +49,8 @@ type ChangeEvent struct {
 // ValidateDataType checks if a data type is supported
 func (dt DataType) IsValid() bool {
 	switch dt {
-	case DataTypeString, DataTypeInt, DataTypeFloat, DataTypeBool, 
-		 DataTypeDate, DataTypeJSON, DataTypeReference:
+	case DataTypeString, DataTypeInt, DataTypeFloat, DataTypeBool,
+		DataTypeDate, DataTypeJSON, DataTypeReference:
 		return true
 	default:
 		return false

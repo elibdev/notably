@@ -34,7 +34,7 @@ type TableResponse struct {
 }
 
 type TableHistoryResponse struct {
-	TableID string        `json:"table_id"`
+	TableID string         `json:"table_id"`
 	Changes []models.Tuple `json:"changes"`
 }
 

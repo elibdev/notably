@@ -42,13 +42,13 @@ type UserManager interface {
 	// User context and authentication
 	GetUserRepository(userID string) UserRepository
 	ValidateUserAccess(ctx context.Context, userID string, tableID string) error
-	
+
 	// Administrative operations
 	CreateUser(ctx context.Context, userID string) (*UserStats, error)
 	GetUser(ctx context.Context, userID string) (*UserStats, error)
 	DeleteUser(ctx context.Context, userID string) error
 	GetUserStats(ctx context.Context, userID string) (*UserStats, error)
-	
+
 	// Health check
 	Health(ctx context.Context) error
 }

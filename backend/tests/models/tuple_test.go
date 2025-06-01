@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/elibdev/notably/internal/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/elibdev/notably/internal/models"
 )
 
 func TestNewEntityID(t *testing.T) {
@@ -362,7 +362,7 @@ func TestTuple_ComplexValues(t *testing.T) {
 
 	decodedMap := decoded.(map[string]interface{})
 	assert.Equal(t, "test", decodedMap["string"])
-	
+
 	nested := decodedMap["nested"].(map[string]interface{})
 	assert.Equal(t, true, nested["bool"])
 }

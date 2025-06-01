@@ -12,6 +12,7 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/logger"
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 
 	"github.com/elibdev/notably/internal/api/handlers"
 	"github.com/elibdev/notably/internal/api/middleware"
@@ -34,36 +35,52 @@ func NewServer(cfg *config.Config, userManager repository.UserManager) *Server {
 }
 
 func (s *Server) Start() error {
+	logrus.Info("Setting up router and routes")
 	s.setupRouter()
 	s.setupRoutes()
 
+	addr := fmt.Sprintf("%s:%d", s.config.Server.Host, s.config.Server.Port)
 	s.httpServer = &http.Server{
-		Addr:         fmt.Sprintf("%s:%d", s.config.Server.Host, s.config.Server.Port),
+		Addr:         addr,
 		Handler:      s.router,
 		ReadTimeout:  s.config.Server.ReadTimeout,
 		WriteTimeout: s.config.Server.WriteTimeout,
 	}
 
+	logrus.WithFields(logrus.Fields{
+		"address":       addr,
+		"read_timeout":  s.config.Server.ReadTimeout,
+		"write_timeout": s.config.Server.WriteTimeout,
+	}).Info("HTTP server configured")
+
 	// Start server in a goroutine
 	go func() {
+		logrus.WithField("address", addr).Info("Starting HTTP server")
 		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			fmt.Printf("Failed to start server: %v\n", err)
-			os.Exit(1)
+			logrus.WithError(err).Fatal("Failed to start HTTP server")
 		}
 	}()
+
+	logrus.Info("Server started successfully, waiting for shutdown signal")
 
 	// Wait for interrupt signal
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	fmt.Println("Shutting down server...")
+	logrus.Info("Shutdown signal received, initiating graceful shutdown")
 
 	// Graceful shutdown
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	return s.httpServer.Shutdown(ctx)
+	if err := s.httpServer.Shutdown(ctx); err != nil {
+		logrus.WithError(err).Error("Error during server shutdown")
+		return err
+	}
+
+	logrus.Info("Server shutdown completed")
+	return nil
 }
 
 func (s *Server) setupRouter() {
