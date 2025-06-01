@@ -184,7 +184,16 @@ func (m *DynamoUserManager) createTableIfNotExists(ctx context.Context) error {
 		return fmt.Errorf("failed to create table: %w", err)
 	}
 
-	return nil
+	// Wait for table to be active
+	return m.waitForTableActive(ctx)
+}
+
+// waitForTableActive waits for the DynamoDB table to be in ACTIVE state
+func (m *DynamoUserManager) waitForTableActive(ctx context.Context) error {
+	waiter := dynamodb.NewTableExistsWaiter(m.client)
+	return waiter.Wait(ctx, &dynamodb.DescribeTableInput{
+		TableName: aws.String(m.tableName),
+	}, 2*time.Minute)
 }
 
 // DeleteUser removes a user and all their data

@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/sirupsen/logrus"
 
 	"github.com/elibdev/notably/internal/api/middleware"
 	"github.com/elibdev/notably/internal/config"
@@ -51,6 +52,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	// Create user
 	_, err := h.userManager.CreateUser(c.Request.Context(), req.UserID)
 	if err != nil {
+		logrus.WithError(err).WithField("user_id", req.UserID).Error("Failed to create user")
 		if repository.IsAlreadyExists(err) {
 			c.JSON(http.StatusConflict, gin.H{"error": "User already exists"})
 		} else {

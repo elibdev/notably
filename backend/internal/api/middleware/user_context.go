@@ -9,10 +9,10 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-func UserContext(userManager repository.UserManager) gin.HandlerFunc {
+func UserContext(userManager repository.UserManager, jwtSecret string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var userIDStr string
-		
+
 		// First, check if user_id is already set by JWT middleware
 		userID, exists := c.Get("user_id")
 		if exists {
@@ -42,9 +42,7 @@ func UserContext(userManager repository.UserManager) gin.HandlerFunc {
 
 			tokenString := parts[1]
 			token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
-				// We need to get the JWT secret somehow - for now use a default
-				// This should be passed as a parameter in a real implementation
-				return []byte("local-development-secret"), nil
+				return []byte(jwtSecret), nil
 			})
 
 			if err != nil || !token.Valid {

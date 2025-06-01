@@ -129,7 +129,7 @@ func (s *Server) setupRoutes() {
 	if s.config.Auth.RequireAuth {
 		protected.Use(middleware.JWTAuth(s.config.Auth.JWTSecret))
 	}
-	protected.Use(middleware.UserContext(s.userManager))
+	protected.Use(middleware.UserContext(s.userManager, s.config.Auth.JWTSecret))
 
 	// User management
 	userHandler := handlers.NewUserHandler(s.userManager)
