@@ -12,20 +12,23 @@ import (
 func main() {
 	baseURL := "http://localhost:8080/api/v1"
 
-	// 1. Register a user
+	// 1. Register a user (with unique ID to avoid conflicts)
+	userID := fmt.Sprintf("user_%d", time.Now().UnixNano())
 	registerReq := map[string]interface{}{
-		"user_id":  "user_123",
+		"user_id":  userID,
 		"password": "secure_password",
-		"email":    "user@example.com",
+		"email":    fmt.Sprintf("user_%d@example.com", time.Now().UnixNano()),
 	}
 
 	authResp, err := makeRequest("POST", baseURL+"/auth/register", registerReq, "")
 	if err != nil {
+		fmt.Printf("❌ Registration failed: %v\n", err)
 		panic(err)
 	}
+	fmt.Printf("✅ User registered successfully\n")
 
 	token := authResp["token"].(string)
-	fmt.Printf("✅ User registered, token: %s\n", token[:20]+"...")
+	fmt.Printf("✅ Authentication token obtained: %s\n", token[:20]+"...")
 
 	// 2. Create a contacts table
 	createTableReq := map[string]interface{}{
@@ -160,13 +163,13 @@ func makeRequest(method, url string, body interface{}, token string) (map[string
 	if body != nil {
 		reqBody, err = json.Marshal(body)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to marshal request body: %w", err)
 		}
 	}
 
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(reqBody))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -174,23 +177,30 @@ func makeRequest(method, url string, body interface{}, token string) (map[string
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
-	}
-
+	// Read response body for better error messages
 	var result map[string]interface{}
 	if resp.StatusCode != http.StatusNoContent {
 		err = json.NewDecoder(resp.Body).Decode(&result)
-		if err != nil {
-			return nil, err
+		if err != nil && resp.StatusCode < 400 {
+			return nil, fmt.Errorf("failed to decode response: %w", err)
 		}
+	}
+
+	if resp.StatusCode >= 400 {
+		errorMsg := fmt.Sprintf("HTTP %d", resp.StatusCode)
+		if result != nil {
+			if errMsg, ok := result["error"]; ok {
+				errorMsg = fmt.Sprintf("HTTP %d: %v", resp.StatusCode, errMsg)
+			}
+		}
+		return nil, fmt.Errorf(errorMsg)
 	}
 
 	return result, nil
