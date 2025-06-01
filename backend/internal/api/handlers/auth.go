@@ -44,16 +44,48 @@ func NewAuthHandler(authConfig config.AuthConfig, userManager repository.UserMan
 }
 
 // Register godoc
-// @Summary      Register a new user
-// @Description  Create a new user account with email and password
+// @Summary      Register a new user account
+// @Description  ## Register New User
+// @Description
+// @Description  Creates a new user account in the Notably system. Upon successful registration,
+// @Description  returns a JWT token that can be used immediately for authentication.
+// @Description
+// @Description  ### Requirements
+// @Description  - **user_id**: Unique identifier (3-50 characters, alphanumeric and underscores)
+// @Description  - **password**: Minimum 8 characters
+// @Description  - **email**: Valid email address format
+// @Description
+// @Description  ### Example Request
+// @Description  ```json
+// @Description  {
+// @Description    "user_id": "john_doe_2024",
+// @Description    "password": "SecurePass123!",
+// @Description    "email": "john.doe@company.com"
+// @Description  }
+// @Description  ```
+// @Description
+// @Description  ### Example Success Response
+// @Description  ```json
+// @Description  {
+// @Description    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+// @Description    "expires_at": "2024-01-01T12:00:00Z",
+// @Description    "user_id": "john_doe_2024"
+// @Description  }
+// @Description  ```
+// @Description
+// @Description  ### Usage After Registration
+// @Description  Include the token in subsequent API calls:
+// @Description  ```
+// @Description  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+// @Description  ```
 // @Tags         authentication
 // @Accept       json
 // @Produce      json
 // @Param        request  body      RegisterRequest  true  "User registration details"
-// @Success      201      {object}  AuthResponse     "User created successfully"
-// @Failure      400      {object}  models.ErrorResponse  "Invalid request"
-// @Failure      409      {object}  models.ErrorResponse  "User already exists"
-// @Failure      500      {object}  models.ErrorResponse  "Internal server error"
+// @Success      201      {object}  AuthResponse     "User created successfully with JWT token"
+// @Failure      400      {object}  models.ErrorResponse  "Invalid request data (missing fields, invalid email, weak password)"
+// @Failure      409      {object}  models.ErrorResponse  "User with this user_id already exists"
+// @Failure      500      {object}  models.ErrorResponse  "Internal server error during user creation"
 // @Router       /auth/register [post]
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req RegisterRequest
@@ -89,16 +121,47 @@ func (h *AuthHandler) Register(c *gin.Context) {
 }
 
 // Login godoc
-// @Summary      Login user
-// @Description  Authenticate user and return JWT token
+// @Summary      Authenticate user and get access token
+// @Description  ## User Authentication
+// @Description
+// @Description  Authenticates an existing user and returns a JWT token for accessing protected endpoints.
+// @Description  The token is valid for a limited time and must be included in the Authorization header
+// @Description  for all subsequent API calls.
+// @Description
+// @Description  ### Example Request
+// @Description  ```json
+// @Description  {
+// @Description    "user_id": "john_doe_2024",
+// @Description    "password": "SecurePass123!"
+// @Description  }
+// @Description  ```
+// @Description
+// @Description  ### Example Success Response
+// @Description  ```json
+// @Description  {
+// @Description    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+// @Description    "expires_at": "2024-01-01T12:00:00Z",
+// @Description    "user_id": "john_doe_2024"
+// @Description  }
+// @Description  ```
+// @Description
+// @Description  ### Using the Token
+// @Description  Add the token to the Authorization header for protected endpoints:
+// @Description  ```
+// @Description  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+// @Description  ```
+// @Description
+// @Description  ### Token Expiration
+// @Description  Tokens have a limited lifetime. When a token expires, you'll receive a 401 Unauthorized
+// @Description  response and need to login again to get a new token.
 // @Tags         authentication
 // @Accept       json
 // @Produce      json
 // @Param        request  body      LoginRequest  true  "User login credentials"
-// @Success      200      {object}  AuthResponse  "Login successful"
-// @Failure      400      {object}  models.ErrorResponse  "Invalid request"
-// @Failure      401      {object}  models.ErrorResponse  "Invalid credentials"
-// @Failure      500      {object}  models.ErrorResponse  "Internal server error"
+// @Success      200      {object}  AuthResponse  "Login successful with JWT token"
+// @Failure      400      {object}  models.ErrorResponse  "Invalid request format or missing fields"
+// @Failure      401      {object}  models.ErrorResponse  "Invalid user_id or password"
+// @Failure      500      {object}  models.ErrorResponse  "Internal server error during authentication"
 // @Router       /auth/login [post]
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req LoginRequest

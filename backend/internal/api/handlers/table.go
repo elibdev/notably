@@ -17,17 +17,65 @@ func NewTableHandler() *TableHandler {
 }
 
 // CreateTable godoc
-// @Summary      Create a new table
-// @Description  Create a new table with field definitions
+// @Summary      Create a new data table with custom schema
+// @Description  ## Create Table
+// @Description
+// @Description  Creates a new table with a custom field schema. Tables define the structure
+// @Description  for your entities and support dynamic field types including strings, numbers,
+// @Description  booleans, dates, JSON objects, and references to other entities.
+// @Description
+// @Description  ### Supported Field Types
+// @Description  - **string**: Text data (names, descriptions, etc.)
+// @Description  - **int**: Integer numbers
+// @Description  - **float**: Decimal numbers
+// @Description  - **bool**: True/false values
+// @Description  - **date**: RFC3339 timestamps
+// @Description  - **json**: Complex nested objects/arrays
+// @Description  - **reference**: Links to other entities
+// @Description
+// @Description  ### Example Request
+// @Description  ```json
+// @Description  {
+// @Description    "id": "customers",
+// @Description    "fields": [
+// @Description      {"name": "name", "data_type": "string"},
+// @Description      {"name": "email", "data_type": "string"},
+// @Description      {"name": "age", "data_type": "int"},
+// @Description      {"name": "active", "data_type": "bool"},
+// @Description      {"name": "created_date", "data_type": "date"},
+// @Description      {"name": "metadata", "data_type": "json"}
+// @Description    ]
+// @Description  }
+// @Description  ```
+// @Description
+// @Description  ### Example Success Response
+// @Description  ```json
+// @Description  {
+// @Description    "id": "customers",
+// @Description    "user_id": "john_doe_2024",
+// @Description    "fields": [
+// @Description      {"name": "name", "data_type": "string"},
+// @Description      {"name": "email", "data_type": "string"}
+// @Description    ],
+// @Description    "created_at": "2024-01-01T12:00:00Z",
+// @Description    "updated_at": "2024-01-01T12:00:00Z"
+// @Description  }
+// @Description  ```
+// @Description
+// @Description  ### Next Steps
+// @Description  After creating a table, you can:
+// @Description  - Add entities: `POST /tables/{id}/entities`
+// @Description  - Update schema: `PUT /tables/{id}`
+// @Description  - Query data: `GET /tables/{id}/entities`
 // @Tags         tables
 // @Accept       json
 // @Produce      json
 // @Security     Bearer
 // @Param        request  body      models.CreateTableRequest  true  "Table creation details"
 // @Success      201      {object}  models.TableResponse       "Table created successfully"
-// @Failure      400      {object}  models.ErrorResponse       "Invalid request"
-// @Failure      401      {object}  models.ErrorResponse       "Unauthorized"
-// @Failure      500      {object}  models.ErrorResponse       "Internal server error"
+// @Failure      400      {object}  models.ErrorResponse       "Invalid request data (missing fields, invalid field types)"
+// @Failure      401      {object}  models.ErrorResponse       "Authentication required - include Bearer token"
+// @Failure      500      {object}  models.ErrorResponse       "Internal server error during table creation"
 // @Router       /tables [post]
 func (h *TableHandler) CreateTable(c *gin.Context) {
 	userRepo := c.MustGet("user_repo").(repository.UserRepository)
@@ -57,15 +105,54 @@ func (h *TableHandler) CreateTable(c *gin.Context) {
 }
 
 // ListTables godoc
-// @Summary      List all tables
-// @Description  Get a list of all tables for the authenticated user
+// @Summary      Get all tables for the current user
+// @Description  ## List User Tables
+// @Description
+// @Description  Retrieves all tables owned by the authenticated user. Each table includes
+// @Description  its schema definition, creation time, and metadata. Use this endpoint to
+// @Description  discover available tables before working with entities.
+// @Description
+// @Description  ### Example Success Response
+// @Description  ```json
+// @Description  {
+// @Description    "tables": [
+// @Description      {
+// @Description        "id": "customers",
+// @Description        "user_id": "john_doe_2024",
+// @Description        "fields": [
+// @Description          {"name": "name", "data_type": "string"},
+// @Description          {"name": "email", "data_type": "string"},
+// @Description          {"name": "active", "data_type": "bool"}
+// @Description        ],
+// @Description        "created_at": "2024-01-01T12:00:00Z",
+// @Description        "updated_at": "2024-01-01T12:00:00Z"
+// @Description      },
+// @Description      {
+// @Description        "id": "products",
+// @Description        "user_id": "john_doe_2024",
+// @Description        "fields": [
+// @Description          {"name": "title", "data_type": "string"},
+// @Description          {"name": "price", "data_type": "float"},
+// @Description          {"name": "in_stock", "data_type": "bool"}
+// @Description        ],
+// @Description        "created_at": "2024-01-01T13:00:00Z",
+// @Description        "updated_at": "2024-01-01T13:00:00Z"
+// @Description      }
+// @Description    ]
+// @Description  }
+// @Description  ```
+// @Description
+// @Description  ### Use Cases
+// @Description  - Dashboard overview of all data schemas
+// @Description  - Table picker for entity management interfaces
+// @Description  - Schema discovery for dynamic form generation
 // @Tags         tables
 // @Accept       json
 // @Produce      json
 // @Security     Bearer
-// @Success      200  {object}  models.TableListResponse  "List of tables"
-// @Failure      401  {object}  models.ErrorResponse      "Unauthorized"
-// @Failure      500  {object}  models.ErrorResponse      "Internal server error"
+// @Success      200  {object}  models.TableListResponse  "List of all user tables with schemas"
+// @Failure      401  {object}  models.ErrorResponse      "Authentication required - missing or invalid Bearer token"
+// @Failure      500  {object}  models.ErrorResponse      "Internal server error retrieving tables"
 // @Router       /tables [get]
 func (h *TableHandler) ListTables(c *gin.Context) {
 	userRepo := c.MustGet("user_repo").(repository.UserRepository)
@@ -85,16 +172,49 @@ func (h *TableHandler) ListTables(c *gin.Context) {
 }
 
 // GetTable godoc
-// @Summary      Get table by ID
-// @Description  Retrieve a specific table by its ID
+// @Summary      Get detailed information about a specific table
+// @Description  ## Get Table Details
+// @Description
+// @Description  Retrieves comprehensive information about a specific table, including
+// @Description  its complete schema definition, field types, and metadata. Use this
+// @Description  endpoint to understand the structure before creating or querying entities.
+// @Description
+// @Description  ### Example Request
+// @Description  ```
+// @Description  GET /tables/customers
+// @Description  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+// @Description  ```
+// @Description
+// @Description  ### Example Success Response
+// @Description  ```json
+// @Description  {
+// @Description    "id": "customers",
+// @Description    "user_id": "john_doe_2024",
+// @Description    "fields": [
+// @Description      {"name": "name", "data_type": "string"},
+// @Description      {"name": "email", "data_type": "string"},
+// @Description      {"name": "age", "data_type": "int"},
+// @Description      {"name": "active", "data_type": "bool"},
+// @Description      {"name": "metadata", "data_type": "json"}
+// @Description    ],
+// @Description    "created_at": "2024-01-01T12:00:00Z",
+// @Description    "updated_at": "2024-01-01T12:00:00Z"
+// @Description  }
+// @Description  ```
+// @Description
+// @Description  ### Use Cases
+// @Description  - Validate table schema before entity operations
+// @Description  - Generate dynamic forms based on field definitions
+// @Description  - Table management interfaces
+// @Description  - Schema documentation and discovery
 // @Tags         tables
 // @Accept       json
 // @Produce      json
 // @Security     Bearer
-// @Param        tableId  path      string  true  "Table ID"
-// @Success      200      {object}  models.TableResponse  "Table information"
-// @Failure      401      {object}  models.ErrorResponse  "Unauthorized"
-// @Failure      404      {object}  models.ErrorResponse  "Table not found"
+// @Param        tableId  path      string  true  "Unique table identifier"
+// @Success      200      {object}  models.TableResponse  "Complete table information with schema"
+// @Failure      401      {object}  models.ErrorResponse  "Authentication required - missing or invalid Bearer token"
+// @Failure      404      {object}  models.ErrorResponse  "Table not found or access denied"
 // @Router       /tables/{tableId} [get]
 func (h *TableHandler) GetTable(c *gin.Context) {
 	userRepo := c.MustGet("user_repo").(repository.UserRepository)
@@ -187,18 +307,61 @@ func (h *TableHandler) DeleteTable(c *gin.Context) {
 }
 
 // GetTableHistory godoc
-// @Summary      Get table history
-// @Description  Retrieve the history of changes for a specific table
+// @Summary      Get complete audit trail for table changes
+// @Description  ## Table History & Audit Trail
+// @Description
+// @Description  Retrieves the complete history of changes made to a table, including
+// @Description  schema modifications, field additions/removals, and metadata updates.
+// @Description  Essential for compliance, debugging, and understanding data evolution.
+// @Description
+// @Description  ### Query Parameters
+// @Description  - **since**: Only show changes after this timestamp (RFC3339 format)
+// @Description  - **limit**: Maximum number of history entries (default: 100)
+// @Description
+// @Description  ### Example Request
+// @Description  ```
+// @Description  GET /tables/customers/history?since=2024-01-01T00:00:00Z&limit=50
+// @Description  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+// @Description  ```
+// @Description
+// @Description  ### Example Success Response
+// @Description  ```json
+// @Description  {
+// @Description    "table_id": "customers",
+// @Description    "changes": [
+// @Description      {
+// @Description        "timestamp": "2024-01-01T12:30:00Z",
+// @Description        "field_name": "phone",
+// @Description        "operation": "field_added",
+// @Description        "value": "string",
+// @Description        "user_id": "john_doe_2024"
+// @Description      },
+// @Description      {
+// @Description        "timestamp": "2024-01-01T12:00:00Z",
+// @Description        "field_name": "_created",
+// @Description        "operation": "table_created",
+// @Description        "value": "customers",
+// @Description        "user_id": "john_doe_2024"
+// @Description      }
+// @Description    ]
+// @Description  }
+// @Description  ```
+// @Description
+// @Description  ### Use Cases
+// @Description  - Compliance and audit requirements
+// @Description  - Schema change tracking
+// @Description  - Debugging data issues
+// @Description  - Understanding table evolution over time
 // @Tags         tables
 // @Accept       json
 // @Produce      json
 // @Security     Bearer
-// @Param        tableId  path   string  true   "Table ID"
-// @Param        since    query  string  false  "Start date for history (RFC3339 format)"
-// @Param        limit    query  int     false  "Maximum number of history entries to return"
-// @Success      200      {object}  models.TableHistoryResponse  "Table history"
-// @Failure      401      {object}  models.ErrorResponse         "Unauthorized"
-// @Failure      500      {object}  models.ErrorResponse         "Internal server error"
+// @Param        tableId  path   string  true   "Unique table identifier"
+// @Param        since    query  string  false  "Start date for history (RFC3339 format, e.g., 2024-01-01T00:00:00Z)"
+// @Param        limit    query  int     false  "Maximum number of history entries to return (default: 100, max: 1000)"
+// @Success      200      {object}  models.TableHistoryResponse  "Complete table change history"
+// @Failure      401      {object}  models.ErrorResponse         "Authentication required - missing or invalid Bearer token"
+// @Failure      500      {object}  models.ErrorResponse         "Internal server error retrieving history"
 // @Router       /tables/{tableId}/history [get]
 func (h *TableHandler) GetTableHistory(c *gin.Context) {
 	userRepo := c.MustGet("user_repo").(repository.UserRepository)
