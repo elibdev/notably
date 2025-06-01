@@ -1,4 +1,6 @@
 import '@testing-library/jest-dom';
+import { vi } from 'vitest';
+import React from 'react';
 
 // Mantine setup for tests
 import { MantineProvider } from '@mantine/core';
@@ -23,19 +25,19 @@ Object.defineProperty(window, 'matchMedia', {
 // Custom render function that includes Mantine provider
 export const renderWithProviders = (ui: ReactElement) => {
   return render(
-    <MantineProvider>{ui}</MantineProvider>
+    React.createElement(MantineProvider, {}, ui)
   );
 };
 
 // Mock IntersectionObserver
-global.IntersectionObserver = vi.fn().mockImplementation(() => ({
+globalThis.IntersectionObserver = vi.fn().mockImplementation(() => ({
   observe: vi.fn(),
   unobserve: vi.fn(),
   disconnect: vi.fn(),
 }));
 
 // Mock ResizeObserver
-global.ResizeObserver = vi.fn().mockImplementation(() => ({
+globalThis.ResizeObserver = vi.fn().mockImplementation(() => ({
   observe: vi.fn(),
   unobserve: vi.fn(),
   disconnect: vi.fn(),

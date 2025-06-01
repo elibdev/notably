@@ -170,9 +170,9 @@ class ApiService {
     params: EntityQueryParams = {}
   ): Promise<EntityListResponse> {
     const searchParams = new URLSearchParams();
-    if (params.limit) searchParams.append('limit', params.limit.toString());
-    if (params.offset) searchParams.append('offset', params.offset.toString());
-    if (params.include_deleted) searchParams.append('include_deleted', params.include_deleted.toString());
+    if (params.limit !== undefined) searchParams.append('limit', params.limit.toString());
+    if (params.offset !== undefined) searchParams.append('offset', params.offset.toString());
+    if (params.include_deleted !== undefined) searchParams.append('include_deleted', params.include_deleted.toString());
     
     const query = searchParams.toString();
     const endpoint = `/tables/${tableId}/entities${query ? `?${query}` : ''}`;
@@ -229,8 +229,8 @@ class ApiService {
     params: HistoryQueryParams = {}
   ): Promise<TableHistoryResponse> {
     const searchParams = new URLSearchParams();
-    if (params.limit) searchParams.append('limit', params.limit.toString());
-    if (params.since) searchParams.append('since', params.since);
+    if (params.limit !== undefined) searchParams.append('limit', params.limit.toString());
+    if (params.since !== undefined) searchParams.append('since', params.since);
     
     const query = searchParams.toString();
     const endpoint = `/tables/${tableId}/entities/${entityId}/history${query ? `?${query}` : ''}`;
@@ -243,8 +243,8 @@ class ApiService {
     params: HistoryQueryParams = {}
   ): Promise<TableHistoryResponse> {
     const searchParams = new URLSearchParams();
-    if (params.limit) searchParams.append('limit', params.limit.toString());
-    if (params.since) searchParams.append('since', params.since);
+    if (params.limit !== undefined) searchParams.append('limit', params.limit.toString());
+    if (params.since !== undefined) searchParams.append('since', params.since);
     
     const query = searchParams.toString();
     const endpoint = `/tables/${tableId}/history${query ? `?${query}` : ''}`;
