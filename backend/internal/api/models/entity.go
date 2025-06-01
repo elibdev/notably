@@ -15,13 +15,13 @@ type UpdateEntityRequest struct {
 }
 
 type EntityResponse struct {
-	EntityID  string                 `json:"entity_id"`
-	TableID   string                 `json:"table_id"`
+	EntityID  string                 `json:"entity_id" example:"entity_123"`
+	TableID   string                 `json:"table_id" example:"users_table"`
 	Fields    map[string]interface{} `json:"fields"`
-	IsDeleted bool                   `json:"is_deleted"`
-	CreatedAt *string                `json:"created_at,omitempty"`
-	DeletedAt *string                `json:"deleted_at,omitempty"`
-	Timestamp string                 `json:"timestamp"`
+	IsDeleted bool                   `json:"is_deleted" example:"false"`
+	CreatedAt *string                `json:"created_at,omitempty" example:"2023-12-31T23:59:59Z"`
+	DeletedAt *string                `json:"deleted_at,omitempty" example:"2023-12-31T23:59:59Z"`
+	Timestamp string                 `json:"timestamp" example:"2023-12-31T23:59:59Z"`
 }
 
 // Conversion functions

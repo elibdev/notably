@@ -7,12 +7,12 @@ import (
 )
 
 type FieldRequest struct {
-	Name     string `json:"name" binding:"required"`
-	DataType string `json:"data_type" binding:"required,oneof=string int float bool date json reference"`
+	Name     string `json:"name" binding:"required" example:"user_name"`
+	DataType string `json:"data_type" binding:"required,oneof=string int float bool date json reference" example:"string"`
 }
 
 type CreateTableRequest struct {
-	ID     string         `json:"id" binding:"required"`
+	ID     string         `json:"id" binding:"required" example:"users_table"`
 	Fields []FieldRequest `json:"fields" binding:"required,min=1"`
 }
 
@@ -21,34 +21,34 @@ type UpdateTableRequest struct {
 }
 
 type FieldResponse struct {
-	Name     string `json:"name"`
-	DataType string `json:"data_type"`
+	Name     string `json:"name" example:"user_name"`
+	DataType string `json:"data_type" example:"string"`
 }
 
 type TableResponse struct {
-	ID        string          `json:"id"`
-	UserID    string          `json:"user_id"`
+	ID        string          `json:"id" example:"users_table"`
+	UserID    string          `json:"user_id" example:"user123"`
 	Fields    []FieldResponse `json:"fields"`
-	CreatedAt string          `json:"created_at"`
-	UpdatedAt string          `json:"updated_at"`
+	CreatedAt string          `json:"created_at" example:"2023-12-31T23:59:59Z"`
+	UpdatedAt string          `json:"updated_at" example:"2023-12-31T23:59:59Z"`
 }
 
 type TableHistoryResponse struct {
-	TableID string         `json:"table_id"`
+	TableID string         `json:"table_id" example:"users_table"`
 	Changes []models.Tuple `json:"changes"`
 }
 
 type FieldHistoryResponse struct {
-	TableID   string                `json:"table_id"`
-	FieldName string                `json:"field_name"`
+	TableID   string                `json:"table_id" example:"users_table"`
+	FieldName string                `json:"field_name" example:"user_name"`
 	Changes   []FieldChangeResponse `json:"changes"`
 }
 
 type FieldChangeResponse struct {
-	EntityID  string  `json:"entity_id"`
-	Timestamp string  `json:"timestamp"`
-	OldValue  *string `json:"old_value,omitempty"`
-	NewValue  string  `json:"new_value"`
+	EntityID  string  `json:"entity_id" example:"entity123"`
+	Timestamp string  `json:"timestamp" example:"2023-12-31T23:59:59Z"`
+	OldValue  *string `json:"old_value,omitempty" example:"old_name"`
+	NewValue  string  `json:"new_value" example:"new_name"`
 }
 
 // Conversion functions

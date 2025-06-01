@@ -79,7 +79,7 @@ load-test:
 # Documentation
 docs:
 	@echo "Generating API documentation..."
-	# Add swagger generation commands
+	swag init -g cmd/server/main.go -o ./docs
 
 # Production deployment
 deploy-dev:

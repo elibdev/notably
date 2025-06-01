@@ -9,6 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/elibdev/notably/internal/api/middleware"
+	"github.com/elibdev/notably/internal/api/models"
 	"github.com/elibdev/notably/internal/config"
 	"github.com/elibdev/notably/internal/repository"
 )
@@ -19,20 +20,20 @@ type AuthHandler struct {
 }
 
 type LoginRequest struct {
-	UserID   string `json:"user_id" binding:"required"`
-	Password string `json:"password" binding:"required"`
+	UserID   string `json:"user_id" binding:"required" example:"user123"`
+	Password string `json:"password" binding:"required" example:"password123"`
 }
 
 type RegisterRequest struct {
-	UserID   string `json:"user_id" binding:"required"`
-	Password string `json:"password" binding:"required,min=8"`
-	Email    string `json:"email" binding:"required,email"`
+	UserID   string `json:"user_id" binding:"required" example:"user123"`
+	Password string `json:"password" binding:"required,min=8" example:"password123"`
+	Email    string `json:"email" binding:"required,email" example:"user@example.com"`
 }
 
 type AuthResponse struct {
-	Token     string    `json:"token"`
-	ExpiresAt time.Time `json:"expires_at"`
-	UserID    string    `json:"user_id"`
+	Token     string    `json:"token" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."`
+	ExpiresAt time.Time `json:"expires_at" example:"2023-12-31T23:59:59Z"`
+	UserID    string    `json:"user_id" example:"user123"`
 }
 
 func NewAuthHandler(authConfig config.AuthConfig, userManager repository.UserManager) *AuthHandler {
@@ -42,10 +43,22 @@ func NewAuthHandler(authConfig config.AuthConfig, userManager repository.UserMan
 	}
 }
 
+// Register godoc
+// @Summary      Register a new user
+// @Description  Create a new user account with email and password
+// @Tags         authentication
+// @Accept       json
+// @Produce      json
+// @Param        request  body      RegisterRequest  true  "User registration details"
+// @Success      201      {object}  AuthResponse     "User created successfully"
+// @Failure      400      {object}  models.ErrorResponse  "Invalid request"
+// @Failure      409      {object}  models.ErrorResponse  "User already exists"
+// @Failure      500      {object}  models.ErrorResponse  "Internal server error"
+// @Router       /auth/register [post]
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -54,9 +67,9 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	if err != nil {
 		logrus.WithError(err).WithField("user_id", req.UserID).Error("Failed to create user")
 		if repository.IsAlreadyExists(err) {
-			c.JSON(http.StatusConflict, gin.H{"error": "User already exists"})
+			c.JSON(http.StatusConflict, models.ErrorResponse{Error: "User already exists"})
 		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+			c.JSON(http.StatusInternalServerError, models.ErrorResponse{Error: "Failed to create user"})
 		}
 		return
 	}
@@ -64,7 +77,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	// Generate token
 	token, expiresAt, err := h.generateToken(req.UserID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{Error: "Failed to generate token"})
 		return
 	}
 
@@ -75,17 +88,29 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	})
 }
 
+// Login godoc
+// @Summary      Login user
+// @Description  Authenticate user and return JWT token
+// @Tags         authentication
+// @Accept       json
+// @Produce      json
+// @Param        request  body      LoginRequest  true  "User login credentials"
+// @Success      200      {object}  AuthResponse  "Login successful"
+// @Failure      400      {object}  models.ErrorResponse  "Invalid request"
+// @Failure      401      {object}  models.ErrorResponse  "Invalid credentials"
+// @Failure      500      {object}  models.ErrorResponse  "Internal server error"
+// @Router       /auth/login [post]
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	// Verify user exists
 	user, err := h.userManager.GetUser(c.Request.Context(), req.UserID)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+		c.JSON(http.StatusUnauthorized, models.ErrorResponse{Error: "Invalid credentials"})
 		return
 	}
 
@@ -96,7 +121,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	// Generate token
 	token, expiresAt, err := h.generateToken(req.UserID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{Error: "Failed to generate token"})
 		return
 	}
 

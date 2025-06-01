@@ -13,7 +13,10 @@ import (
 	"github.com/gin-contrib/logger"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 
+	_ "github.com/elibdev/notably/docs"
 	"github.com/elibdev/notably/internal/api/handlers"
 	"github.com/elibdev/notably/internal/api/middleware"
 	"github.com/elibdev/notably/internal/config"
@@ -167,9 +170,8 @@ func (s *Server) setupRoutes() {
 	admin := protected.Group("/admin/tables/:tableId")
 	admin.GET("/entities", entityHandler.ListEntitiesIncludingDeleted)
 
-	// OpenAPI documentation
-	s.router.Static("/docs", "./docs/swagger")
-	s.router.GET("/openapi.json", handlers.OpenAPISpec)
+	// Swagger documentation
+	s.router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 }
 
 // Testing helper methods
