@@ -135,6 +135,14 @@ func (m *DynamoUserManager) createTableIfNotExists(ctx context.Context) error {
 				AttributeName: aws.String("GSI1SK"),
 				AttributeType: types.ScalarAttributeTypeS,
 			},
+			{
+				AttributeName: aws.String("GSI2PK"),
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+			{
+				AttributeName: aws.String("GSI2SK"),
+				AttributeType: types.ScalarAttributeTypeS,
+			},
 		},
 		KeySchema: []types.KeySchemaElement{
 			{
@@ -156,6 +164,26 @@ func (m *DynamoUserManager) createTableIfNotExists(ctx context.Context) error {
 					},
 					{
 						AttributeName: aws.String("GSI1SK"),
+						KeyType:       types.KeyTypeRange,
+					},
+				},
+				Projection: &types.Projection{
+					ProjectionType: types.ProjectionTypeAll,
+				},
+				ProvisionedThroughput: &types.ProvisionedThroughput{
+					ReadCapacityUnits:  aws.Int64(5),
+					WriteCapacityUnits: aws.Int64(5),
+				},
+			},
+			{
+				IndexName: aws.String("GSI2"),
+				KeySchema: []types.KeySchemaElement{
+					{
+						AttributeName: aws.String("GSI2PK"),
+						KeyType:       types.KeyTypeHash,
+					},
+					{
+						AttributeName: aws.String("GSI2SK"),
 						KeyType:       types.KeyTypeRange,
 					},
 				},
@@ -754,27 +782,58 @@ func (r *DynamoUserRepository) DeleteField(ctx context.Context, tableID string, 
 
 // GetFieldHistory retrieves history for a specific field
 func (r *DynamoUserRepository) GetFieldHistory(ctx context.Context, tableID string, fieldName string, opts models.QueryOptions) (*models.FieldHistory, error) {
-	// This would require a GSI on field names
-	// For now, return empty history
+	// Use GSI2 for efficient field-specific history queries
+	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(r.tableName),
+		IndexName:              aws.String("GSI2"),
+		KeyConditionExpression: aws.String("GSI2PK = :pk AND begins_with(GSI2SK, :sk)"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":pk": &types.AttributeValueMemberS{Value: fmt.Sprintf("USER#%s#TABLE#%s#FIELD#%s", r.userID, tableID, fieldName)},
+			":sk": &types.AttributeValueMemberS{Value: "TUPLE#"},
+		},
+		ScanIndexForward: aws.Bool(false), // Most recent first
+	})
+
+	if err != nil {
+		return nil, NewRepositoryError(ErrorTypeInternal, "failed to get field history", err)
+	}
+
+	changes := make([]models.FieldChange, 0, len(result.Items))
+	for _, item := range result.Items {
+		tuple, err := r.parseTupleFromItem(item)
+		if err != nil {
+			continue
+		}
+
+		change := models.FieldChange{
+			Timestamp: tuple.Timestamp,
+			EntityID:  tuple.EntityID,
+			OldValue:  nil, // Would need to be computed from previous tuple
+			NewValue:  fmt.Sprintf("%v", tuple.Value),
+			Operation: "SET", // Default operation for field changes
+		}
+		changes = append(changes, change)
+	}
+
 	return &models.FieldHistory{
 		TableID:   tableID,
 		FieldName: fieldName,
-		Changes:   []models.FieldChange{},
+		Changes:   changes,
 	}, nil
 }
 
 // GetEntityHistory retrieves the complete history of an entity
 func (r *DynamoUserRepository) GetEntityHistory(ctx context.Context, tableID string, entityID string, opts models.QueryOptions) (*models.QueryResult, error) {
+	// Use GSI1 for efficient entity-specific history queries
 	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
 		TableName:              aws.String(r.tableName),
-		KeyConditionExpression: aws.String("PK = :pk AND begins_with(SK, :sk)"),
-		FilterExpression:       aws.String("EntityID = :entityID"),
+		IndexName:              aws.String("GSI1"),
+		KeyConditionExpression: aws.String("GSI1PK = :pk AND begins_with(GSI1SK, :sk)"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":pk":       &types.AttributeValueMemberS{Value: fmt.Sprintf("USER#%s#TABLE#%s", r.userID, tableID)},
-			":sk":       &types.AttributeValueMemberS{Value: "TUPLE#"},
-			":entityID": &types.AttributeValueMemberS{Value: entityID},
+			":pk": &types.AttributeValueMemberS{Value: fmt.Sprintf("USER#%s#ENTITY#%s", r.userID, entityID)},
+			":sk": &types.AttributeValueMemberS{Value: "TUPLE#"},
 		},
-		ScanIndexForward: aws.Bool(false),
+		ScanIndexForward: aws.Bool(false), // Most recent first
 	})
 
 	if err != nil {
@@ -877,6 +936,14 @@ func (r *DynamoUserRepository) storeTuple(ctx context.Context, tuple *models.Tup
 	// Add DynamoDB keys
 	item["PK"] = &types.AttributeValueMemberS{Value: fmt.Sprintf("USER#%s#TABLE#%s", r.userID, tuple.TableID)}
 	item["SK"] = &types.AttributeValueMemberS{Value: fmt.Sprintf("TUPLE#%d#%s", tuple.Timestamp.Unix(), tuple.EntityID)}
+
+	// Add GSI1 keys for efficient entity-specific history queries
+	item["GSI1PK"] = &types.AttributeValueMemberS{Value: fmt.Sprintf("USER#%s#ENTITY#%s", r.userID, tuple.EntityID)}
+	item["GSI1SK"] = &types.AttributeValueMemberS{Value: fmt.Sprintf("TUPLE#%d#%s", tuple.Timestamp.Unix(), tuple.FieldName)}
+
+	// Add GSI2 keys for efficient field-specific history queries across all entities
+	item["GSI2PK"] = &types.AttributeValueMemberS{Value: fmt.Sprintf("USER#%s#TABLE#%s#FIELD#%s", r.userID, tuple.TableID, tuple.FieldName)}
+	item["GSI2SK"] = &types.AttributeValueMemberS{Value: fmt.Sprintf("TUPLE#%d#%s", tuple.Timestamp.Unix(), tuple.EntityID)}
 
 	_, err = r.client.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String(r.tableName),
